@@ -2,6 +2,9 @@ import { fetchJobs as fetchArbeitnow } from './jobSources/arbeitnow.js';
 import { fetchJobs as fetchWWR } from './jobSources/weworkremotely.js';
 import { fetchJobs as fetchRemoteOK } from './jobSources/remoteok.js';
 import { fetchJobs as fetchRemotar } from './jobSources/remotar.js';
+import { fetchJobs as fetchVagasComBr } from './jobSources/vagascombr.js';
+import { fetchJobs as fetchEmpregaju } from './jobSources/empregaju.js';
+import { fetchJobs as fetchSolides } from './jobSources/solides.js';
 import { pool } from '../utils/db.js';
 
 const SOURCES = [
@@ -9,6 +12,9 @@ const SOURCES = [
   { name: 'weworkremotely', fn: fetchWWR },
   { name: 'remoteok', fn: fetchRemoteOK },
   { name: 'remotar', fn: fetchRemotar },
+  { name: 'vagascombr', fn: fetchVagasComBr },
+  { name: 'empregaju', fn: fetchEmpregaju },
+  { name: 'solides', fn: fetchSolides },
 ];
 
 async function getKeywords() {

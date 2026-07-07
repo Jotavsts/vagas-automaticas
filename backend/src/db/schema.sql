@@ -17,7 +17,7 @@ CREATE TABLE preferences (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TYPE job_source AS ENUM ('arbeitnow','weworkremotely','remoteok','remotar');
+CREATE TYPE job_source AS ENUM ('arbeitnow','weworkremotely','remoteok','remotar','vagascombr','empregaju','solides');
 CREATE TYPE job_status AS ENUM ('new','adapted','approved','discarded');
 
 CREATE TABLE jobs (
