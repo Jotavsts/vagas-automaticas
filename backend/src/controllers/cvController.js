@@ -146,3 +146,23 @@ export async function approveJob(req, res) {
     res.status(500).json({ error: 'Falha ao aprovar candidatura', details: err.message });
   }
 }
+
+/**
+ * GET /api/jobs/:id/adaptation - retorna a adaptação já salva (sem reprocessar via IA).
+ */
+export async function getAdaptationForJob(req, res) {
+  const { id } = req.params;
+  try {
+    const result = await pool.query(
+      'SELECT * FROM cv_adaptations WHERE job_id = $1 ORDER BY created_at DESC LIMIT 1',
+      [id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Nenhuma adaptação encontrada para esta vaga.' });
+    }
+    res.json({ adaptation: result.rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Falha ao buscar adaptação', details: err.message });
+  }
+}
