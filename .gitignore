@@ -33,3 +33,6 @@ coverage/
 
 # Misc
 .cache/
+
+# Gerado
+backend/generated-cvs/

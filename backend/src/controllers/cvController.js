@@ -1,5 +1,6 @@
 import { pool } from '../utils/db.js';
 import { adaptCv } from '../services/cvAdapter.js';
+import { generatePdf } from '../services/cvPdfGenerator.js';
 
 /**
  * GET /api/cv - retorna o CV base do candidato.
@@ -72,5 +73,35 @@ export async function adaptForJob(req, res) {
     res
       .status(500)
       .json({ error: 'Falha ao adaptar CV', details: err.message });
+  }
+}
+
+/**
+ * POST /api/jobs/:id/generate-pdf - gera o PDF do CV adaptado mais recente para a vaga.
+ */
+export async function generatePdfForJob(req, res) {
+  const { id } = req.params;
+  try {
+    const result = await pool.query(
+      'SELECT * FROM cv_adaptations WHERE job_id = $1 ORDER BY created_at DESC LIMIT 1',
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Nenhuma adaptação encontrada para esta vaga. Chame /adapt primeiro.',
+      });
+    }
+
+    const adaptation = result.rows[0];
+    const { filePath, fileName } = await generatePdf(adaptation.adapted_content, id);
+    const downloadUrl = `/generated-cvs/${fileName}`;
+
+    return res.json({ pdfPath: filePath, downloadUrl });
+  } catch (err) {
+    console.error(err);
+    res
+      .status(500)
+      .json({ error: 'Falha ao gerar PDF', details: err.message });
   }
 }

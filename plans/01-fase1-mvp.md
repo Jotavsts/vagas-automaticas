@@ -188,12 +188,24 @@ Regras:
 Já temos Playwright como dependência (Fase 2, para Remotar) — reaproveitar em vez de adicionar `pdfkit`/`puppeteer` como dependência extra:
 ```js
 const page = await browser.newPage();
-await page.setContent(renderCvHtml(adaptedContent)); // template HTML simples
+await page.setContent(renderCvHtml(adaptedContent)); // template HTML fiel ao layout de referência
 const pdfBuffer = await page.pdf({ format: 'A4' });
 ```
 Salvar em `backend/generated-cvs/{jobId}-{timestamp}.pdf` (pasta gitignored).
 
-**Verificação:** gerar um PDF de teste e abrir manualmente pra conferir formatação.
+**Layout de referência (fixo, independe de pessoa/vaga — decisão do usuário em 2026-07-07):**
+o template reproduz a estrutura visual do currículo original do usuário (`Curriculo Ia J.Vitor.pdf`):
+1. Nome completo — centralizado, grande, negrito
+2. Linha de contato centralizada: telefone | email | localização
+3. Linha de links centralizada: LinkedIn | GitHub
+4. Seção **RESUMO PROFISSIONAL** (título em maiúsculas com regra horizontal abaixo) — parágrafo do `summary`
+5. Seção **EXPERIÊNCIA PROFISSIONAL** — para cada item de `experience`: linha com empresa (negrito, esquerda) e location (direita); linha seguinte com role (itálico, esquerda) e `start_date`–`end_date` (direita, "Presente" se `end_date` for null); lista de `bullets`
+6. Seção **FORMAÇÃO ACADÊMICA** — mesmo padrão (institution/location, degree/expected_completion)
+7. Seção **COMPETÊNCIAS E TECNOLOGIAS** — uma linha por categoria de `skills` (label em negrito + lista separada por vírgula): Linguagens e Frameworks (`languages`), Inteligência Artificial (`ai`), Cloud e Infraestrutura (`cloud`), Ferramentas e Práticas (`tools`)
+
+**Decisão explícita do usuário (2026-07-07): SEM texto invisível/oculto.** O currículo de referência tinha um bloco de palavras-chave em texto branco/invisível no final (técnica de "keyword stuffing" pra ATS). Isso foi identificado e **rejeitado deliberadamente** — não implementar texto oculto de nenhuma forma; a otimização pra ATS acontece de forma honesta, através da própria seção de Competências já vindo reordenada/priorizada pela Fase 3 (`cvAdapter.js`), que é visível.
+
+**Verificação:** gerar um PDF de teste (com um CV adaptado real da Fase 3) e abrir manualmente pra conferir formatação — abrir o PDF e também extrair o texto dele (ex: copiar o texto renderizado) pra confirmar que NENHUM conteúdo extra além do visível existe no arquivo.
 
 ---
 
