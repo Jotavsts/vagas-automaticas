@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import Dashboard from './pages/Dashboard'
 import History from './pages/History'
+import Settings from './pages/Settings'
 import AdaptModal from './components/AdaptModal'
 
 const TABS = [
   { id: 'dashboard', label: 'Vagas' },
   { id: 'history', label: 'Histórico' },
+  { id: 'settings', label: 'Configurações' },
 ]
 
 function App() {
@@ -38,6 +40,7 @@ function App() {
       <main className="bg-surface border-t border-border p-6 min-h-[calc(100vh-64px)]">
         {activeTab === 'dashboard' && <Dashboard onAdapt={setModalJob} onViewAdaptation={setModalJob} />}
         {activeTab === 'history' && <History key={historyKey} />}
+        {activeTab === 'settings' && <Settings />}
       </main>
 
       {modalJob && (
