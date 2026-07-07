@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import jobsRouter from './routes/jobs.js';
 
 dotenv.config();
 
@@ -15,6 +16,8 @@ app.use(express.json());
 app.get('/api/health', (req, res) => {
   res.json({ status: 'Backend rodando ✅' });
 });
+
+app.use('/api/jobs', jobsRouter);
 
 // Start server
 app.listen(PORT, () => {
