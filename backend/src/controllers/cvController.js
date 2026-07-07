@@ -105,3 +105,44 @@ export async function generatePdfForJob(req, res) {
       .json({ error: 'Falha ao gerar PDF', details: err.message });
   }
 }
+
+/**
+ * POST /api/jobs/:id/approve - gera o PDF, grava em applications e marca a vaga como aprovada.
+ */
+export async function approveJob(req, res) {
+  const { id } = req.params;
+  try {
+    const adaptationResult = await pool.query(
+      'SELECT * FROM cv_adaptations WHERE job_id = $1 ORDER BY created_at DESC LIMIT 1',
+      [id]
+    );
+    if (adaptationResult.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Nenhuma adaptação encontrada para esta vaga. Chame /adapt primeiro.',
+      });
+    }
+    const adaptation = adaptationResult.rows[0];
+
+    const jobResult = await pool.query('SELECT * FROM jobs WHERE id = $1', [id]);
+    if (jobResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Vaga não encontrada' });
+    }
+    const job = jobResult.rows[0];
+
+    const { fileName } = await generatePdf(adaptation.adapted_content, id);
+    const downloadUrl = `/generated-cvs/${fileName}`;
+
+    const insert = await pool.query(
+      `INSERT INTO applications (job_id, cv_adaptation_id, pdf_path, opened_url)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [id, adaptation.id, downloadUrl, job.url]
+    );
+
+    await pool.query("UPDATE jobs SET status = 'approved' WHERE id = $1", [id]);
+
+    return res.json({ application: insert.rows[0], downloadUrl, jobUrl: job.url });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Falha ao aprovar candidatura', details: err.message });
+  }
+}
