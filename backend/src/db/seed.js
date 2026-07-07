@@ -105,21 +105,48 @@ const skills = {
   ],
 };
 
+// Leque amplo de propósito: backend/IA (foco principal) + frontend/fullstack
+// (áreas adjacentes que o João quer alcançar). O relevance_score é ranking, não
+// filtro — então incluir termos de frontend faz essas vagas subirem, sem excluir nada.
 const preferenceKeywords = [
+  // Linguagens e base
   'python',
   'node.js',
   'javascript',
+  'typescript',
+  // Frontend
+  'react',
+  'next.js',
+  'frontend',
+  'front-end',
+  'html',
+  'css',
+  'tailwind',
+  // Fullstack / API
+  'fullstack',
+  'full stack',
+  'backend',
+  'back-end',
+  'api',
+  'rest',
+  'fastapi',
+  'django',
+  'express',
+  // Infra / dados
   'aws',
   'docker',
+  'sql',
+  'postgresql',
+  'mongodb',
+  // IA
   'llm',
   'nlp',
   'langchain',
   'rag',
-  'backend',
-  'fastapi',
-  'django',
-  'agentes autônomos',
-  'ia generativa',
+  'inteligência artificial',
+  'machine learning',
+  // Prática
+  'git',
 ];
 
 async function seed() {

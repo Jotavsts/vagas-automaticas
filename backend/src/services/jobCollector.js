@@ -16,11 +16,26 @@ async function getKeywords() {
   return rows[0]?.keywords || [];
 }
 
-function computeRelevanceScore(job, keywords) {
+// João é JÚNIOR. O score prioriza vagas do nível dele: rebaixa sênior/lead/principal
+// (ainda ficam visíveis, só afundam no ranking) e valoriza júnior/estágio/entry.
+// O sinal vem do TÍTULO, que é bem mais confiável que a descrição pra indicar nível.
+const SENIOR_SIGNALS = ['senior', 'sênior', 'sr.', 'lead', 'principal', 'staff', 'head of'];
+const JUNIOR_SIGNALS = ['junior', 'júnior', 'jr.', 'entry', 'trainee', 'estági', 'iniciante'];
+
+function seniorityAdjustment(title) {
+  const t = (title || '').toLowerCase();
+  if (SENIOR_SIGNALS.some((s) => t.includes(s))) return -30;
+  if (JUNIOR_SIGNALS.some((s) => t.includes(s))) return 15;
+  return 0;
+}
+
+export function computeRelevanceScore(job, keywords) {
   if (keywords.length === 0) return 0;
   const haystack = `${job.title} ${job.description} ${(job.tags || []).join(' ')}`.toLowerCase();
-  const matches = keywords.filter(k => haystack.includes(k.toLowerCase())).length;
-  return Math.round((matches / keywords.length) * 100);
+  const matches = keywords.filter((k) => haystack.includes(k.toLowerCase())).length;
+  const base = Math.round((matches / keywords.length) * 100);
+  const adjusted = base + seniorityAdjustment(job.title);
+  return Math.max(0, Math.min(100, adjusted));
 }
 
 export async function collectJobs() {

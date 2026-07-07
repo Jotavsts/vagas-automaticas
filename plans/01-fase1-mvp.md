@@ -129,7 +129,7 @@ Reutilizar a mesma instância de browser entre chamadas (não abrir um browser n
 **jobCollector.js** — orquestrador:
 1. Chama as 4 fontes em paralelo (`Promise.allSettled`, não `Promise.all` — uma fonte falhando não derruba as outras)
 2. Normaliza todas pro formato comum
-3. Calcula `relevance_score` simples: contagem de matches entre `tags`/`title`/`description` da vaga e `preferences.keywords` do usuário (score = % de keywords encontradas, não filtro rígido — alinhado com "não quero ficar preso a uma stack só")
+3. Calcula `relevance_score` (0-100): % de matches entre `tags`/`title`/`description` da vaga e `preferences.keywords` do usuário (não filtro rígido — alinhado com "não quero ficar preso a uma stack só"). **Ajuste de senioridade** (`seniorityAdjustment()`): -30 pra títulos sênior/lead/principal, +15 pra júnior/estágio/entry — o candidato é júnior, então vagas do nível dele sobem e sênior afunda (mas sem sumir). Keywords cobrem backend/IA **e** frontend/fullstack. Repontuar vagas antigas com `node src/db/rescore.js` sempre que keywords ou lógica mudarem.
 4. Insere no banco com `INSERT ... ON CONFLICT (source, external_id) DO NOTHING` (dedupe automático)
 5. Retorna `{ found: N, new: M }` pro endpoint que chamou
 
@@ -150,14 +150,24 @@ Reutilizar a mesma instância de browser entre chamadas (não abrir um browser n
 
 **System prompt (regras invioláveis):**
 ```
-Você adapta currículos para vagas específicas. Regras:
+Você adapta currículos para vagas específicas. O candidato é um desenvolvedor JÚNIOR.
+Regras:
 1. NUNCA invente experiência, empresa, cargo, tecnologia ou data que não exista no currículo original.
 2. Você PODE: reordenar itens, reescrever o resumo profissional pra destacar o que é relevante,
    reordenar/destacar habilidades já existentes, ajustar o tom (mais backend/mais IA/mais frontend)
    conforme a vaga pedir.
 3. Toda informação factual (empresas, cargos, datas, formação) deve ficar IDÊNTICA ao original.
-4. Responda APENAS com JSON válido no schema fornecido, sem texto fora do JSON.
+4. NÍVEL DE SENIORIDADE: o candidato é JÚNIOR e o CV deve sempre se apresentar como tal —
+   nunca alegue ser pleno, sênior, lead ou especialista. Você DEVE, porém, espelhar o TOM e o
+   vocabulário da vaga (ex: se a vaga valoriza "autonomia", "colaboração" ou uma stack específica,
+   destaque essas qualidades reais do candidato) — sem jamais mentir sobre o nível.
+5. Responda APENAS com JSON válido no schema fornecido, sem texto fora do JSON.
 ```
+
+> **Decisão do usuário (2026-07-06):** candidato é júnior. Na coleta (Fase 2, já implementada),
+> vagas sênior/lead/principal são rebaixadas no `relevance_score` (mas continuam visíveis) e
+> vagas júnior recebem boost — ver `seniorityAdjustment()` em `jobCollector.js`. Na adaptação,
+> o CV sempre se enquadra como júnior espelhando o tom da vaga (regra 4 acima).
 
 **User message:** título da vaga + descrição completa + tags + o JSON completo de `cv_base`.
 
