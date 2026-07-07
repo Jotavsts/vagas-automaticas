@@ -36,3 +36,6 @@ coverage/
 
 # Gerado
 backend/generated-cvs/
+
+# Sessoes de brainstorming visual (mockups temporarios)
+.superpowers/
