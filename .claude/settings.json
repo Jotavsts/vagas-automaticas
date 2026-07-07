@@ -1,0 +1,24 @@
+{
+  "extraKnownMarketplaces": {
+    "impeccable": {
+      "source": "github",
+      "repo": "pbakaus/impeccable"
+    },
+    "superpowers": {
+      "source": "github",
+      "repo": "obra/superpowers"
+    },
+    "claude-mem": {
+      "source": "github",
+      "repo": "thedotmack/claude-mem"
+    },
+    "vercel-skills": {
+      "source": "github",
+      "repo": "vercel-labs/skills"
+    },
+    "one-skill": {
+      "source": "github",
+      "repo": "rebelytics/one-skill-to-rule-them-all"
+    }
+  }
+}
