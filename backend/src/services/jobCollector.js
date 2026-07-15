@@ -1,26 +1,18 @@
-import { fetchJobs as fetchArbeitnow } from './jobSources/arbeitnow.js';
-import { fetchJobs as fetchWWR } from './jobSources/weworkremotely.js';
-import { fetchJobs as fetchRemoteOK } from './jobSources/remoteok.js';
 import { fetchJobs as fetchRemotar } from './jobSources/remotar.js';
 import { fetchJobs as fetchVagasComBr } from './jobSources/vagascombr.js';
 import { fetchJobs as fetchEmpregaju } from './jobSources/empregaju.js';
 import { fetchJobs as fetchSolides } from './jobSources/solides.js';
+import { summarizeJob } from './jobSummarizer.js';
 import { pool } from '../utils/db.js';
 
 const SOURCES = [
-  { name: 'arbeitnow', fn: fetchArbeitnow },
-  { name: 'weworkremotely', fn: fetchWWR },
-  { name: 'remoteok', fn: fetchRemoteOK },
   { name: 'remotar', fn: fetchRemotar },
   { name: 'vagascombr', fn: fetchVagasComBr },
   { name: 'empregaju', fn: fetchEmpregaju },
   { name: 'solides', fn: fetchSolides },
 ];
 
-async function getKeywords() {
-  const { rows } = await pool.query('SELECT keywords FROM preferences ORDER BY id LIMIT 1');
-  return rows[0]?.keywords || [];
-}
+const SUMMARIZE_CONCURRENCY = 5;
 
 // João é JÚNIOR. O score prioriza vagas do nível dele: rebaixa sênior/lead/principal
 // (ainda ficam visíveis, só afundam no ranking) e valoriza júnior/estágio/entry.
@@ -35,18 +27,51 @@ function seniorityAdjustment(title) {
   return 0;
 }
 
+/**
+ * Calcula o score de relevância de uma vaga para um conjunto de keywords.
+ * Chamado por usuário em tempo de leitura (cada usuário tem suas próprias keywords
+ * em preferences), não mais gravado globalmente na coleta.
+ */
 export function computeRelevanceScore(job, keywords) {
   if (keywords.length === 0) return 0;
-  const haystack = `${job.title} ${job.description} ${(job.tags || []).join(' ')}`.toLowerCase();
+  const haystack = `${job.title} ${job.summary || ''} ${(job.keywords || []).join(' ')} ${(job.tags || []).join(' ')}`.toLowerCase();
   const matches = keywords.filter((k) => haystack.includes(k.toLowerCase())).length;
   const base = Math.round((matches / keywords.length) * 100);
   const adjusted = base + seniorityAdjustment(job.title);
   return Math.max(0, Math.min(100, adjusted));
 }
 
+/**
+ * Resume um lote de vagas em paralelo limitado (evita disparar dezenas de
+ * chamadas de IA simultâneas numa coleta grande).
+ */
+async function summarizeInBatches(jobs) {
+  const summarized = [];
+  for (let i = 0; i < jobs.length; i += SUMMARIZE_CONCURRENCY) {
+    const batch = jobs.slice(i, i + SUMMARIZE_CONCURRENCY);
+    const results = await Promise.all(batch.map((job) => summarizeJob(job)));
+    batch.forEach((job, idx) => {
+      summarized.push({
+        ...job,
+        summary: results[idx].summary,
+        keywords: results[idx].keywords,
+        modality: results[idx].modality,
+        state: results[idx].state,
+      });
+    });
+  }
+  return summarized;
+}
+
+/**
+ * Coleta vagas de todas as fontes (Brasil-only) e insere no pool global de vagas,
+ * compartilhado entre todos os usuários. A descrição bruta de cada vaga nunca é
+ * gravada — só o resumo e as keywords extraídas por IA (summarizeJob). Não grava
+ * relevance_score aqui — cada usuário calcula sua própria pontuação em tempo de
+ * leitura via computeRelevanceScore.
+ */
 export async function collectJobs() {
-  const keywords = await getKeywords();
-  const results = await Promise.allSettled(SOURCES.map(s => s.fn()));
+  const results = await Promise.allSettled(SOURCES.map((s) => s.fn()));
 
   const bySource = {};
   let totalFound = 0;
@@ -62,16 +87,40 @@ export async function collectJobs() {
     }
     const jobs = result.value || [];
     totalFound += jobs.length;
-    let insertedCount = 0;
 
-    for (const job of jobs) {
-      const score = computeRelevanceScore(job, keywords);
+    // Filtra vagas já coletadas antes de resumir, pra não gastar chamada de IA à toa
+    const existingResult = jobs.length
+      ? await pool.query('SELECT external_id FROM jobs WHERE source = $1 AND external_id = ANY($2)', [
+          sourceName,
+          jobs.map((j) => j.externalId),
+        ])
+      : { rows: [] };
+    const existingIds = new Set(existingResult.rows.map((r) => r.external_id));
+    const newJobs = jobs.filter((j) => !existingIds.has(j.externalId));
+
+    const summarized = await summarizeInBatches(newJobs);
+
+    let insertedCount = 0;
+    for (const job of summarized) {
       const insertResult = await pool.query(
-        `INSERT INTO jobs (source, external_id, title, company, location, description, tags, url, posted_at, relevance_score)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+        `INSERT INTO jobs (source, external_id, title, company, location, modality, state, summary, keywords, tags, url, posted_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
          ON CONFLICT (source, external_id) DO NOTHING
          RETURNING id`,
-        [job.source, job.externalId, job.title, job.company, job.location, job.description, job.tags, job.url, job.postedAt, score]
+        [
+          job.source,
+          job.externalId,
+          job.title,
+          job.company,
+          job.location,
+          job.modality,
+          job.state,
+          job.summary,
+          job.keywords,
+          job.tags,
+          job.url,
+          job.postedAt,
+        ]
       );
       if (insertResult.rows.length > 0) insertedCount++;
     }

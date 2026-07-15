@@ -4,6 +4,12 @@ import Button from './Button'
 
 const SENIOR_REGEX = /senior|s[êe]nior|lead|principal|staff/i
 
+const MODALITY_LABELS = {
+  remoto: 'Remoto',
+  presencial: 'Presencial',
+  hibrido: 'Híbrido',
+}
+
 function JobCard({ job, onAdapt, onViewAdaptation }) {
   const isSenior = SENIOR_REGEX.test(job.title)
   const isAdapted = job.status === 'adapted' || job.status === 'approved'
@@ -26,6 +32,8 @@ function JobCard({ job, onAdapt, onViewAdaptation }) {
           <Tag key={tag} variant="relevant">{tag}</Tag>
         ))}
         <Tag variant="neutral">{job.source}</Tag>
+        {job.modality && <Tag variant="neutral">{MODALITY_LABELS[job.modality] || job.modality}</Tag>}
+        {job.state && <Tag variant="neutral">{job.state}</Tag>}
         {isSenior && <Tag variant="danger">Sênior</Tag>}
         {isAdapted && <Tag variant="success">✓ Adaptado</Tag>}
       </div>

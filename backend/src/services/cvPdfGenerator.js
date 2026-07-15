@@ -7,6 +7,28 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // backend/src/services -> backend/generated-cvs
 const OUTPUT_DIR = path.join(__dirname, '..', '..', 'generated-cvs');
 
+function slugify(value) {
+  return String(value)
+    .normalize('NFD')
+    .replace(new RegExp('[\\u0300-\\u036f]', 'g'), '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+}
+
+function abbreviateCompany(company) {
+  if (!company || /não informada/i.test(company)) return '';
+  const words = String(company)
+    .normalize('NFD')
+    .replace(new RegExp('[\\u0300-\\u036f]', 'g'), '')
+    .toLowerCase()
+    .match(/[a-z0-9]+/g);
+  if (!words || words.length === 0) return '';
+  if (words.length === 1) return words[0].slice(0, 12);
+  return words.map((word) => word[0]).join('');
+}
+
 function escapeHtml(value) {
   if (value === null || value === undefined) return '';
   return String(value)
@@ -168,12 +190,14 @@ function renderHtml(content) {
 }
 
 /**
- * Gera o PDF do CV adaptado e salva em backend/generated-cvs/{jobId}-{timestamp}.pdf
+ * Gera o PDF do CV adaptado e salva em backend/generated-cvs/{jobTitle}-{empresaAbreviada}.pdf
  * @param {object} adaptedContent - mesma forma do cv_base (full_name, contact, summary, experience, education, skills)
- * @param {number|string} jobId
+ * @param {number|string} jobId - usado só como fallback caso jobTitle não seja informado
+ * @param {string} [jobTitle] - título da vaga, usado para nomear o arquivo de forma legível
+ * @param {string} [company] - empresa da vaga, abreviada no nome do arquivo
  * @returns {Promise<{filePath: string, fileName: string}>}
  */
-export async function generatePdf(adaptedContent, jobId) {
+export async function generatePdf(adaptedContent, jobId, jobTitle, company) {
   const html = renderHtml(adaptedContent);
 
   const browser = await chromium.launch();
@@ -191,8 +215,10 @@ export async function generatePdf(adaptedContent, jobId) {
 
   await mkdir(OUTPUT_DIR, { recursive: true });
 
-  const timestamp = Date.now();
-  const fileName = `${jobId}-${timestamp}.pdf`;
+  const titleSlug = jobTitle ? slugify(jobTitle) : '';
+  const companyAbbr = abbreviateCompany(company);
+  const base = [titleSlug, companyAbbr].filter(Boolean).join('-');
+  const fileName = base ? `${base}.pdf` : `cv-adaptado.pdf`;
   const filePath = path.join(OUTPUT_DIR, fileName);
 
   await writeFile(filePath, pdfBuffer);

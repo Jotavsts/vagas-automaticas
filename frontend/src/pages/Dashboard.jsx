@@ -11,6 +11,8 @@ function Dashboard({ onAdapt, onViewAdaptation }) {
   const [search, setSearch] = useState('')
   const [source, setSource] = useState('')
   const [status, setStatus] = useState('')
+  const [modality, setModality] = useState('')
+  const [state, setState] = useState('')
 
   async function loadJobs() {
     setLoading(true)
@@ -31,11 +33,17 @@ function Dashboard({ onAdapt, onViewAdaptation }) {
   }
 
   const sources = useMemo(() => [...new Set(jobs.map((j) => j.source))].sort(), [jobs])
+  const states = useMemo(
+    () => [...new Set(jobs.map((j) => j.state).filter(Boolean))].sort(),
+    [jobs]
+  )
 
   const filtered = useMemo(() => {
     return jobs
       .filter((j) => (source ? j.source === source : true))
       .filter((j) => (status ? j.status === status : true))
+      .filter((j) => (modality ? j.modality === modality : true))
+      .filter((j) => (state ? j.state === state : true))
       .filter((j) => {
         if (!search) return true
         const q = search.toLowerCase()
@@ -46,7 +54,7 @@ function Dashboard({ onAdapt, onViewAdaptation }) {
         )
       })
       .sort((a, b) => (b.relevance_score ?? 0) - (a.relevance_score ?? 0))
-  }, [jobs, source, status, search])
+  }, [jobs, source, status, modality, state, search])
 
   return (
     <div>
@@ -67,7 +75,12 @@ function Dashboard({ onAdapt, onViewAdaptation }) {
         onSourceChange={setSource}
         status={status}
         onStatusChange={setStatus}
+        modality={modality}
+        onModalityChange={setModality}
+        state={state}
+        onStateChange={setState}
         sources={sources}
+        states={states}
       />
 
       {loading ? (

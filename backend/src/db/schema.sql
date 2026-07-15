@@ -1,5 +1,14 @@
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  email TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
 CREATE TABLE cv_base (
   id SERIAL PRIMARY KEY,
+  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  label TEXT,
   full_name TEXT NOT NULL,
   contact JSONB NOT NULL,
   summary TEXT NOT NULL,
@@ -11,14 +20,14 @@ CREATE TABLE cv_base (
 
 CREATE TABLE preferences (
   id SERIAL PRIMARY KEY,
+  user_id INT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
   keywords TEXT[] DEFAULT '{}',
   excluded_companies TEXT[] DEFAULT '{}',
   min_relevance_score INT DEFAULT 40,
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TYPE job_source AS ENUM ('arbeitnow','weworkremotely','remoteok','remotar','vagascombr','empregaju','solides');
-CREATE TYPE job_status AS ENUM ('new','adapted','approved','discarded');
+CREATE TYPE job_source AS ENUM ('remotar','vagascombr','empregaju','solides');
 
 CREATE TABLE jobs (
   id SERIAL PRIMARY KEY,
@@ -27,12 +36,14 @@ CREATE TABLE jobs (
   title TEXT NOT NULL,
   company TEXT,
   location TEXT,
-  description TEXT NOT NULL,
+  modality TEXT,
+  state TEXT,
+  summary TEXT,
+  keywords TEXT[] DEFAULT '{}',
   tags TEXT[] DEFAULT '{}',
   url TEXT NOT NULL,
   posted_at TIMESTAMPTZ,
   collected_at TIMESTAMPTZ DEFAULT now(),
-  status job_status DEFAULT 'new',
   relevance_score INT,
   UNIQUE(source, external_id)
 );
@@ -40,6 +51,8 @@ CREATE TABLE jobs (
 CREATE TABLE cv_adaptations (
   id SERIAL PRIMARY KEY,
   job_id INT REFERENCES jobs(id) ON DELETE CASCADE,
+  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  cv_base_id INT REFERENCES cv_base(id) ON DELETE SET NULL,
   adapted_content JSONB NOT NULL,
   match_score INT,
   match_notes TEXT,
@@ -50,6 +63,7 @@ CREATE TABLE cv_adaptations (
 CREATE TABLE applications (
   id SERIAL PRIMARY KEY,
   job_id INT REFERENCES jobs(id) ON DELETE CASCADE,
+  user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   cv_adaptation_id INT REFERENCES cv_adaptations(id),
   pdf_path TEXT,
   approved_at TIMESTAMPTZ DEFAULT now(),

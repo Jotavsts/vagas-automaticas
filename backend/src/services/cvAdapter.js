@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import { parseJsonFromText } from '../utils/jsonExtract.js';
 
 const MODEL = 'claude-haiku-4-5';
 
@@ -31,35 +32,21 @@ const OUTPUT_SCHEMA_DOC = `Schema JSON de saída esperado (responda APENAS com u
  */
 function buildUserMessage(job, cvBase) {
   const tags = Array.isArray(job.tags) ? job.tags.join(', ') : (job.tags || '');
+  const keywords = Array.isArray(job.keywords) ? job.keywords.join(', ') : (job.keywords || '');
   return `VAGA
 Título: ${job.title || ''}
 Empresa: ${job.company || ''}
 Tags: ${tags}
 
-Descrição completa da vaga:
-${job.description || ''}
+Resumo da vaga:
+${job.summary || ''}
+
+Palavras-chave/requisitos: ${keywords}
 
 CURRÍCULO BASE (JSON completo do candidato):
 ${JSON.stringify(cvBase, null, 2)}
 
 ${OUTPUT_SCHEMA_DOC}`;
-}
-
-/**
- * Extrai um objeto JSON de forma robusta a partir do texto retornado pela API.
- * Trata cercas de código ```json e texto extra pegando do primeiro { ao último }.
- */
-function parseJsonFromText(text) {
-  if (typeof text !== 'string') return null;
-  const first = text.indexOf('{');
-  const last = text.lastIndexOf('}');
-  if (first === -1 || last === -1 || last <= first) return null;
-  const candidate = text.slice(first, last + 1);
-  try {
-    return JSON.parse(candidate);
-  } catch {
-    return null;
-  }
 }
 
 /**

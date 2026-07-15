@@ -38,12 +38,16 @@ function AdaptModal({ job, onClose, onApproved }) {
   async function handleApprove() {
     setApproving(true)
     const result = await approveJob(job.id)
+    const response = await fetch(`http://localhost:5000${result.downloadUrl}`)
+    const blob = await response.blob()
+    const blobUrl = URL.createObjectURL(blob)
     const link = document.createElement('a')
-    link.href = `http://localhost:5000${result.downloadUrl}`
-    link.download = ''
+    link.href = blobUrl
+    link.download = result.downloadUrl.split('/').pop()
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+    URL.revokeObjectURL(blobUrl)
     window.open(result.jobUrl, '_blank')
     setApproving(false)
     onApproved()
@@ -75,6 +79,12 @@ function AdaptModal({ job, onClose, onApproved }) {
               <div className="text-base font-bold text-ink pr-3">{job.title}</div>
               <Badge score={adaptation.match_score} />
             </div>
+
+            {adaptation.cv_label && (
+              <div className="mb-3">
+                <Tag variant="neutral">CV usado: {adaptation.cv_label}</Tag>
+              </div>
+            )}
 
             <p className="text-[13px] text-ink leading-relaxed mb-3.5">
               {adaptation.adapted_content.summary}

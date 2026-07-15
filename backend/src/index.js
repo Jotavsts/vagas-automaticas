@@ -6,6 +6,8 @@ import { fileURLToPath } from 'url';
 import jobsRouter from './routes/jobs.js';
 import cvRouter from './routes/cv.js';
 import applicationsRouter from './routes/applications.js';
+import authRouter from './routes/auth.js';
+import { requireAuth } from './middleware/requireAuth.js';
 
 dotenv.config();
 
@@ -21,9 +23,10 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'Backend rodando ✅' });
 });
 
-app.use('/api/jobs', jobsRouter);
-app.use('/api/cv', cvRouter);
-app.use('/api/applications', applicationsRouter);
+app.use('/api/auth', authRouter);
+app.use('/api/jobs', requireAuth, jobsRouter);
+app.use('/api/cv', requireAuth, cvRouter);
+app.use('/api/applications', requireAuth, applicationsRouter);
 app.use('/generated-cvs', express.static(path.join(__dirname, '..', 'generated-cvs')));
 
 app.listen(PORT, () => {
