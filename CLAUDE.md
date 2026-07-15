@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 "Vagas Automáticas" — a multi-user tool that scrapes remote/Brazil tech job postings, ranks them per-user, adapts the user's résumé to each job via Claude (never inventing facts), generates a PDF, and hands off a one-click "apply" (downloads PDF + opens the job posting — it deliberately does **not** auto-submit forms; see Product decisions below).
 
+## Commit messages
+
+Do not add a `Co-Authored-By: Claude` (or similar Anthropic attribution) trailer to commit messages in this repo — the user commits as themselves only.
+
 ## Commands
 
 ```bash
