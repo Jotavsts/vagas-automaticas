@@ -8,6 +8,7 @@ import cvRouter from './routes/cv.js';
 import applicationsRouter from './routes/applications.js';
 import authRouter from './routes/auth.js';
 import { requireAuth } from './middleware/requireAuth.js';
+import { startScheduler } from './services/jobScheduler.js';
 
 dotenv.config();
 
@@ -31,4 +32,5 @@ app.use('/generated-cvs', express.static(path.join(__dirname, '..', 'generated-c
 
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
+  startScheduler();
 });

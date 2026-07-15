@@ -1,9 +1,10 @@
-import { collectJobs, computeRelevanceScore } from '../services/jobCollector.js';
+import { computeRelevanceScore } from '../services/jobCollector.js';
+import { runCollection } from '../services/jobScheduler.js';
 import { pool } from '../utils/db.js';
 
 export async function collect(req, res) {
   try {
-    const summary = await collectJobs();
+    const summary = await runCollection('manual');
     res.json(summary);
   } catch (err) {
     console.error(err);
