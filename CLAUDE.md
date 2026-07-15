@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commit messages
 
-Do not add a `Co-Authored-By: Claude` (or similar Anthropic attribution) trailer to commit messages in this repo — the user commits as themselves only.
+No tool-attribution trailers. Write commit messages the way the repo owner would: short title, plain first-person body only when it adds real context, no exhaustive "tested X/Y" or reasoning essays.
 
 ## Commands
 
