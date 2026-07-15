@@ -33,7 +33,7 @@ function Login() {
         className="bg-surface rounded-2xl p-6 max-w-sm w-full border border-border shadow-2xl shadow-primary/10"
       >
         <h1 className="text-lg font-bold text-ink mb-1">Entrar</h1>
-        <p className="text-sm text-ink-secondary mb-5">Vagas Automáticas</p>
+        <p className="text-sm text-ink-secondary mb-5">Adapta Aí</p>
 
         <label className="block text-xs font-semibold text-ink-secondary mb-1">Email</label>
         <input

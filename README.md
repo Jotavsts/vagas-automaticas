@@ -1,4 +1,4 @@
-# 🚀 Vagas Automáticas
+# 🚀 Adapta Aí
 
 Ferramenta inteligente para automação de envio de currículos adaptados a vagas de tecnologia remota.
 
