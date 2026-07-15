@@ -1,11 +1,14 @@
 import { chromium } from 'playwright';
 
 const BASE_URL = 'https://remotar.com.br';
-// Categorias tech no filtro do site (descobertas via inspeção real, 2026-07-15):
-// 4=Data Science/Analytics, 7=DevOps, 8=QA, 9=SysAdmin, 13=Programação, 14=Programação Mobile.
-// Sem esse filtro a listagem traz TODAS as áreas (vendas, RH, jurídico etc. — ~650 vagas);
-// filtrando na fonte já cai pra ~50 vagas relevantes, economizando resumo por IA à toa.
-const SEARCH_URL = 'https://remotar.com.br/search/jobs?q=&c=4&c=7&c=13&c=14&c=8&c=9';
+// Categorias do filtro do site cujo id foi confirmado ao vivo (ver jobAreaResolver.js
+// pra lista completa + explicação). Default cobre tecnologia: 4=Data Science/Analytics,
+// 7=DevOps, 8=QA, 9=SysAdmin, 13=Programação, 14=Programação Mobile.
+// Sem filtro de categoria a listagem traz TODAS as áreas (vendas, RH, jurídico etc. —
+// ~650 vagas); filtrando na fonte cai pra ~50 vagas relevantes, economizando resumo
+// por IA à toa. Por isso fetchJobs() retorna [] direto se o conjunto de categorias
+// ativas vier vazio, em vez de cair pra um fetch sem filtro nenhum.
+const DEFAULT_AREAS = [{ remotar_category_ids: [4, 7, 13, 14, 8, 9] }];
 const GOTO_TIMEOUT_MS = 15000;
 const DETAIL_CONCURRENCY = 6; // páginas de detalhe abertas em paralelo (lotes, não uma aba por vaga isolada)
 const MAX_DETAIL_PAGES = 100; // limite defensivo (listagem filtrada por categoria já é bem menor que o site inteiro)
@@ -120,13 +123,20 @@ async function mapWithConcurrency(items, limit, fn) {
   return results;
 }
 
-export async function fetchJobs() {
+export async function fetchJobs(areas = DEFAULT_AREAS) {
+  const categoryIds = Array.from(new Set(areas.flatMap((a) => a.remotar_category_ids || [])));
+  if (!categoryIds.length) {
+    console.warn('[remotar] nenhuma área ativa tem categoria de Remotar (best-effort, pulando fonte)');
+    return [];
+  }
+  const searchUrl = `${BASE_URL}/search/jobs?q=${categoryIds.map((id) => `&c=${id}`).join('')}`;
+
   try {
     const browser = await getBrowser();
     const page = await browser.newPage();
     let cards;
     try {
-      await gotoWithRetry(page, SEARCH_URL);
+      await gotoWithRetry(page, searchUrl);
       await scrollUntilStable(page);
       cards = await extractListingCards(page);
     } finally {

@@ -48,6 +48,24 @@ CREATE TABLE jobs (
   UNIQUE(source, external_id)
 );
 
+CREATE TABLE active_job_areas (
+  id SERIAL PRIMARY KEY,
+  label TEXT NOT NULL,
+  vagascombr_slug TEXT NOT NULL UNIQUE,
+  remotar_category_ids INT[] NOT NULL DEFAULT '{}',
+  solides_query TEXT NOT NULL DEFAULT '',
+  source_label TEXT,
+  created_by_user_id INT REFERENCES users(id) ON DELETE SET NULL,
+  active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Seed: preserva o comportamento atual (só tecnologia) até que áreas novas
+-- sejam ativadas sob demanda pelo jobAreaResolver.
+INSERT INTO active_job_areas (label, vagascombr_slug, remotar_category_ids, solides_query, source_label)
+VALUES ('Tecnologia', 'tecnologia', '{4,7,13,14,8,9}', '', 'seed-default')
+ON CONFLICT (vagascombr_slug) DO NOTHING;
+
 CREATE TABLE cv_adaptations (
   id SERIAL PRIMARY KEY,
   job_id INT REFERENCES jobs(id) ON DELETE CASCADE,

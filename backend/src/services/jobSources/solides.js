@@ -16,6 +16,7 @@ const API_URL = 'https://apigw.solides.com.br/jobs/v3/portal-vacancies-new';
 const PORTAL_URL = 'https://vagas.solides.com.br';
 const TAKE = 40; // quantas vagas puxar por vez
 const MAX_PAGES = 30; // limite defensivo
+const DEFAULT_AREAS = [{ solides_query: '' }];
 
 const BROWSER_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
@@ -84,9 +85,9 @@ function normalize(v) {
   };
 }
 
-async function fetchPage(page) {
+async function fetchPage(page, query = '') {
   const { data } = await axios.get(API_URL, {
-    params: { title: '', locations: '', take: TAKE, page },
+    params: { title: query, locations: '', take: TAKE, page },
     headers: {
       'User-Agent': BROWSER_UA,
       Accept: 'application/json, text/plain, */*',
@@ -101,36 +102,49 @@ async function fetchPage(page) {
   return { list: Array.isArray(list) ? list : [], totalPages };
 }
 
-export async function fetchJobs() {
-  try {
-    const { list: firstPageList, totalPages } = await fetchPage(1);
-    if (!firstPageList.length) {
-      console.warn(
-        `[solides] endpoint retornou 0 vagas — portal sem vagas ativas no momento (best-effort, retornando vazio)`
-      );
-      return [];
-    }
+export async function fetchJobs(areas = DEFAULT_AREAS) {
+  const rawJobs = [];
+  const seenIds = new Set();
 
-    const rawJobs = [...firstPageList];
-    const lastPage = Math.min(totalPages, MAX_PAGES);
-    for (let page = 2; page <= lastPage; page++) {
-      try {
-        const { list: pageList } = await fetchPage(page);
-        if (!pageList.length) break;
-        rawJobs.push(...pageList);
-      } catch (err) {
-        console.warn(`[solides] falha na página ${page} (best-effort, parando paginação):`, err.message);
-        break;
+  for (const area of areas) {
+    const query = area.solides_query || '';
+    try {
+      const { list: firstPageList, totalPages } = await fetchPage(1, query);
+      if (!firstPageList.length) continue;
+
+      for (const raw of firstPageList) rawJobs.push(raw);
+
+      const lastPage = Math.min(totalPages, MAX_PAGES);
+      for (let page = 2; page <= lastPage; page++) {
+        try {
+          const { list: pageList } = await fetchPage(page, query);
+          if (!pageList.length) break;
+          for (const raw of pageList) rawJobs.push(raw);
+        } catch (err) {
+          console.warn(`[solides] falha na página ${page} da busca "${query}" (best-effort, parando paginação dessa área):`, err.message);
+          break;
+        }
       }
+    } catch (err) {
+      console.warn(`[solides] falha ao coletar área "${query}" (best-effort, seguindo pras próximas):`, err.message);
     }
+  }
 
-    const jobs = rawJobs.map(normalize).filter(Boolean);
-    if (!jobs.length) {
-      console.warn('[solides] endpoint retornou itens, mas nenhum pôde ser normalizado (best-effort, retornando vazio)');
-    }
-    return jobs;
-  } catch (err) {
-    console.error('[solides] falha ao coletar (best-effort, ignorando):', err.message);
+  if (!rawJobs.length) {
+    console.warn('[solides] nenhuma vaga retornada em nenhuma área (best-effort, portal pode estar sem vagas ativas)');
     return [];
   }
+
+  const jobs = [];
+  for (const raw of rawJobs) {
+    const normalized = normalize(raw);
+    if (!normalized || seenIds.has(normalized.externalId)) continue;
+    seenIds.add(normalized.externalId);
+    jobs.push(normalized);
+  }
+
+  if (!jobs.length) {
+    console.warn('[solides] endpoint retornou itens, mas nenhum pôde ser normalizado (best-effort, retornando vazio)');
+  }
+  return jobs;
 }

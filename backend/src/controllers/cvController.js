@@ -3,6 +3,7 @@ import { adaptCv } from '../services/cvAdapter.js';
 import { generatePdf } from '../services/cvPdfGenerator.js';
 import { extractCv } from '../services/cvExtractor.js';
 import { selectCv } from '../services/cvSelector.js';
+import { ensureAreaForLabel } from '../services/jobAreaResolver.js';
 
 // Limite de currículos por usuário no plano gratuito. Gancho de assinatura
 // futura: quando existir plano pago, isso vira um limite por usuário/tier.
@@ -74,6 +75,12 @@ export async function addCv(req, res) {
         JSON.stringify(cv.education || []),
         JSON.stringify(cv.skills || {}),
       ]
+    );
+
+    // Fire-and-forget: não atrasa a resposta. Se a área for nova, só passa a
+    // ser coletada a partir do próximo ciclo do cron.
+    ensureAreaForLabel(cv.label, req.userId).catch((err) =>
+      console.error('[jobAreaResolver] falha ao registrar área ao adicionar CV (best-effort):', err.message)
     );
 
     return res.status(201).json(insert.rows[0]);

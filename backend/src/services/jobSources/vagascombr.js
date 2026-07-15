@@ -1,10 +1,10 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 
-const LISTING_URL = 'https://www.vagas.com.br/vagas-de-tecnologia';
 const BASE_URL = 'https://www.vagas.com.br';
 const MAX_PAGES = 30; // limite defensivo (o site expõe ~15 páginas hoje; margem pra crescer sem coleta infinita)
-const PAGE_DELAY_MS = 400; // intervalo entre páginas pra não martelar o site
+const PAGE_DELAY_MS = 400; // intervalo entre páginas e entre áreas, pra não martelar o site
+const DEFAULT_AREAS = [{ vagascombr_slug: 'tecnologia' }];
 
 // User-Agent de navegador comum. O site bloqueia bots de IA (ClaudeBot/GPTBot) por UA,
 // mas a listagem pública é permitida no robots.txt (só /api/ é Disallow — não usamos).
@@ -31,9 +31,10 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function fetchPage(pageNumber) {
+async function fetchPage(pageNumber, slug) {
+  const listingUrl = `${BASE_URL}/vagas-de-${slug}`;
   const url =
-    pageNumber === 1 ? LISTING_URL : `${LISTING_URL}?pagina=${pageNumber}&q=tecnologia`;
+    pageNumber === 1 ? listingUrl : `${listingUrl}?pagina=${pageNumber}&q=${encodeURIComponent(slug)}`;
   const { data: html } = await axios.get(url, {
     headers: {
       'User-Agent': BROWSER_UA,
@@ -91,31 +92,47 @@ async function fetchPage(pageNumber) {
   return { jobs, totalPages };
 }
 
-export async function fetchJobs() {
+export async function fetchJobs(areas = DEFAULT_AREAS) {
   const allJobs = [];
-  try {
-    const { jobs: firstPageJobs, totalPages } = await fetchPage(1);
-    allJobs.push(...firstPageJobs);
+  const seenIds = new Set();
 
-    const lastPage = Math.min(totalPages, MAX_PAGES);
-    for (let page = 2; page <= lastPage; page++) {
-      await sleep(PAGE_DELAY_MS);
-      try {
-        const { jobs: pageJobs } = await fetchPage(page);
-        if (!pageJobs.length) break; // página vazia, para (evita continuar batendo à toa)
-        allJobs.push(...pageJobs);
-      } catch (err) {
-        console.warn(`[vagascombr] falha na página ${page} (best-effort, parando paginação):`, err.message);
-        break;
+  for (const area of areas) {
+    const slug = area.vagascombr_slug;
+    if (!slug) continue;
+
+    try {
+      const { jobs: firstPageJobs, totalPages } = await fetchPage(1, slug);
+      for (const job of firstPageJobs) {
+        if (seenIds.has(job.externalId)) continue;
+        seenIds.add(job.externalId);
+        allJobs.push(job);
       }
+
+      const lastPage = Math.min(totalPages, MAX_PAGES);
+      for (let page = 2; page <= lastPage; page++) {
+        await sleep(PAGE_DELAY_MS);
+        try {
+          const { jobs: pageJobs } = await fetchPage(page, slug);
+          if (!pageJobs.length) break; // página vazia, para (evita continuar batendo à toa)
+          for (const job of pageJobs) {
+            if (seenIds.has(job.externalId)) continue;
+            seenIds.add(job.externalId);
+            allJobs.push(job);
+          }
+        } catch (err) {
+          console.warn(`[vagascombr] falha na página ${page} do slug "${slug}" (best-effort, parando paginação dessa área):`, err.message);
+          break;
+        }
+      }
+    } catch (err) {
+      console.warn(`[vagascombr] falha ao coletar área "${slug}" (best-effort, seguindo pras próximas):`, err.message);
     }
 
-    if (!allJobs.length) {
-      console.warn('[vagascombr] nenhum card de vaga encontrado no HTML (best-effort, retornando vazio)');
-    }
-    return allJobs;
-  } catch (err) {
-    console.error('[vagascombr] falha ao coletar (best-effort, ignorando):', err.message);
-    return allJobs;
+    await sleep(PAGE_DELAY_MS);
   }
+
+  if (!allJobs.length) {
+    console.warn('[vagascombr] nenhum card de vaga encontrado no HTML (best-effort, retornando vazio)');
+  }
+  return allJobs;
 }

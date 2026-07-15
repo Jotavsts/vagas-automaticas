@@ -70,8 +70,13 @@ async function summarizeInBatches(jobs) {
  * relevance_score aqui — cada usuário calcula sua própria pontuação em tempo de
  * leitura via computeRelevanceScore.
  */
+const DEFAULT_AREAS = [{ vagascombr_slug: 'tecnologia', remotar_category_ids: [4, 7, 13, 14, 8, 9], solides_query: '' }];
+
 export async function collectJobs() {
-  const results = await Promise.allSettled(SOURCES.map((s) => s.fn()));
+  const { rows: areas } = await pool.query('SELECT * FROM active_job_areas WHERE active = true ORDER BY id');
+  const effectiveAreas = areas.length ? areas : DEFAULT_AREAS; // defensivo: funciona mesmo antes da seed rodar
+
+  const results = await Promise.allSettled(SOURCES.map((s) => s.fn(effectiveAreas)));
 
   const bySource = {};
   let totalFound = 0;

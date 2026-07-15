@@ -2,20 +2,11 @@ import { chromium } from 'playwright';
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { slugify } from '../utils/slugify.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // backend/src/services -> backend/generated-cvs
 const OUTPUT_DIR = path.join(__dirname, '..', '..', 'generated-cvs');
-
-function slugify(value) {
-  return String(value)
-    .normalize('NFD')
-    .replace(new RegExp('[\\u0300-\\u036f]', 'g'), '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 60);
-}
 
 function abbreviateCompany(company) {
   if (!company || /não informada/i.test(company)) return '';

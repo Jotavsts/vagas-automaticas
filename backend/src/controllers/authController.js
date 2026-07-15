@@ -2,6 +2,7 @@ import bcrypt from 'bcrypt';
 import { pool } from '../utils/db.js';
 import { signToken } from '../utils/jwt.js';
 import { extractCv, deriveKeywordsFromSkills } from '../services/cvExtractor.js';
+import { ensureAreaForLabel } from '../services/jobAreaResolver.js';
 
 const ALLOWED_MIMETYPES = new Set([
   'application/pdf',
@@ -80,6 +81,12 @@ export async function register(req, res) {
     } finally {
       client.release();
     }
+
+    // Fire-and-forget: não atrasa a resposta do cadastro. Se a área do CV for
+    // nova, só passa a ser coletada a partir do próximo ciclo do cron.
+    ensureAreaForLabel(cv.label, user.id).catch((err) =>
+      console.error('[jobAreaResolver] falha ao registrar área no cadastro (best-effort):', err.message)
+    );
 
     const token = signToken(user.id);
     return res.status(201).json({ token, user });
