@@ -5,9 +5,14 @@
   "main": "src/index.js",
   "type": "module",
   "scripts": {
-    "dev": "node --watch src/index.js",
+    "dev": "nodemon src/index.js",
     "start": "node src/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "nodemonConfig": {
+    "ext": "js,json",
+    "ignore": ["generated-cvs/*", "node_modules/*"],
+    "delay": "1000"
   },
   "keywords": [
     "jobs",
