@@ -223,8 +223,8 @@ export async function generatePdfForJob(req, res) {
     const jobTitle = jobResult.rows[0]?.title;
     const jobCompany = jobResult.rows[0]?.company;
 
-    const { filePath, fileName } = await generatePdf(adaptation.adapted_content, id, jobTitle, jobCompany);
-    const downloadUrl = `/generated-cvs/${fileName}`;
+    const { filePath, fileName } = await generatePdf(adaptation.adapted_content, id, jobTitle, jobCompany, req.userId);
+    const downloadUrl = `/generated-cvs/${req.userId}/${fileName}`;
 
     return res.json({ pdfPath: filePath, downloadUrl });
   } catch (err) {
@@ -258,8 +258,8 @@ export async function approveJob(req, res) {
     }
     const job = jobResult.rows[0];
 
-    const { fileName } = await generatePdf(adaptation.adapted_content, id, job.title, job.company);
-    const downloadUrl = `/generated-cvs/${fileName}`;
+    const { fileName } = await generatePdf(adaptation.adapted_content, id, job.title, job.company, req.userId);
+    const downloadUrl = `/generated-cvs/${req.userId}/${fileName}`;
 
     const insert = await pool.query(
       `INSERT INTO applications (job_id, user_id, cv_adaptation_id, pdf_path, opened_url)

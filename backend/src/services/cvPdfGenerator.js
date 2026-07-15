@@ -190,14 +190,15 @@ function renderHtml(content) {
 }
 
 /**
- * Gera o PDF do CV adaptado e salva em backend/generated-cvs/{jobTitle}-{empresaAbreviada}.pdf
+ * Gera o PDF do CV adaptado e salva em backend/generated-cvs/{userId}/{jobTitle}-{empresaAbreviada}.pdf
  * @param {object} adaptedContent - mesma forma do cv_base (full_name, contact, summary, experience, education, skills)
  * @param {number|string} jobId - usado só como fallback caso jobTitle não seja informado
  * @param {string} [jobTitle] - título da vaga, usado para nomear o arquivo de forma legível
  * @param {string} [company] - empresa da vaga, abreviada no nome do arquivo
+ * @param {number|string} userId - isola o arquivo por usuário (dois usuários aprovando a mesma vaga não colidem mais)
  * @returns {Promise<{filePath: string, fileName: string}>}
  */
-export async function generatePdf(adaptedContent, jobId, jobTitle, company) {
+export async function generatePdf(adaptedContent, jobId, jobTitle, company, userId) {
   const html = renderHtml(adaptedContent);
 
   const browser = await chromium.launch();
@@ -213,13 +214,14 @@ export async function generatePdf(adaptedContent, jobId, jobTitle, company) {
     await browser.close();
   }
 
-  await mkdir(OUTPUT_DIR, { recursive: true });
+  const userDir = path.join(OUTPUT_DIR, String(userId));
+  await mkdir(userDir, { recursive: true });
 
   const titleSlug = jobTitle ? slugify(jobTitle) : '';
   const companyAbbr = abbreviateCompany(company);
   const base = [titleSlug, companyAbbr].filter(Boolean).join('-');
   const fileName = base ? `${base}.pdf` : `cv-adaptado.pdf`;
-  const filePath = path.join(OUTPUT_DIR, fileName);
+  const filePath = path.join(userDir, fileName);
 
   await writeFile(filePath, pdfBuffer);
 

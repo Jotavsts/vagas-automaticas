@@ -11,7 +11,7 @@
   },
   "nodemonConfig": {
     "ext": "js,json",
-    "ignore": ["generated-cvs/*", "node_modules/*"],
+    "ignore": ["generated-cvs/**", "node_modules/*"],
     "delay": "1000"
   },
   "keywords": [
