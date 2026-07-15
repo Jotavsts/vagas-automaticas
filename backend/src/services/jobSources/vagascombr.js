@@ -3,6 +3,8 @@ import * as cheerio from 'cheerio';
 
 const LISTING_URL = 'https://www.vagas.com.br/vagas-de-tecnologia';
 const BASE_URL = 'https://www.vagas.com.br';
+const MAX_PAGES = 30; // limite defensivo (o site expõe ~15 páginas hoje; margem pra crescer sem coleta infinita)
+const PAGE_DELAY_MS = 400; // intervalo entre páginas pra não martelar o site
 
 // User-Agent de navegador comum. O site bloqueia bots de IA (ClaudeBot/GPTBot) por UA,
 // mas a listagem pública é permitida no robots.txt (só /api/ é Disallow — não usamos).
@@ -25,65 +27,95 @@ function parseBrDate(str) {
   return isNaN(d.getTime()) ? null : d;
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchPage(pageNumber) {
+  const url =
+    pageNumber === 1 ? LISTING_URL : `${LISTING_URL}?pagina=${pageNumber}&q=tecnologia`;
+  const { data: html } = await axios.get(url, {
+    headers: {
+      'User-Agent': BROWSER_UA,
+      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
+    },
+    timeout: 15000,
+  });
+
+  const $ = cheerio.load(html);
+  const jobs = [];
+
+  $('li.vaga').each((_, el) => {
+    const card = $(el);
+    const titleEl = card.find('a.link-detalhes-vaga').first();
+    if (!titleEl.length) return;
+
+    const href = titleEl.attr('href') || '';
+    const jobUrl = href.startsWith('http') ? href : `${BASE_URL}${href}`;
+    // externalId: data-id-vaga; fallback pro /v{id}/ do path
+    const externalId =
+      titleEl.attr('data-id-vaga') ||
+      (href.match(/\/v(\d+)\//) || [])[1] ||
+      href;
+
+    const title = titleEl.text().replace(/\s+/g, ' ').trim();
+    const company = card.find('.emprVaga').first().text().replace(/\s+/g, ' ').trim() || null;
+    const nivel = card.find('.nivelVaga').first().text().replace(/\s+/g, ' ').trim();
+
+    // .vaga-local contém o texto da cidade seguido de um tooltip; pegar só o texto direto
+    const localEl = card.find('.vaga-local').first().clone();
+    localEl.find('.tooltip-place').remove();
+    localEl.find('i').remove();
+    const location = localEl.text().replace(/\s+/g, ' ').trim() || null;
+
+    const description = card.find('.detalhes p').first().text().replace(/\s+/g, ' ').trim() || title;
+    const postedAt = parseBrDate(card.find('.data-publicacao').first().text());
+
+    jobs.push({
+      source: 'vagascombr',
+      externalId: String(externalId),
+      title,
+      company,
+      location,
+      description,
+      tags: nivel ? [nivel] : [],
+      url: jobUrl,
+      postedAt,
+    });
+  });
+
+  // O botão "carregar mais" expõe o total de páginas em data-total.
+  const totalPages = Number($('#maisVagas').attr('data-total')) || 1;
+
+  return { jobs, totalPages };
+}
+
 export async function fetchJobs() {
+  const allJobs = [];
   try {
-    const { data: html } = await axios.get(LISTING_URL, {
-      headers: {
-        'User-Agent': BROWSER_UA,
-        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
-      },
-      timeout: 15000,
-    });
+    const { jobs: firstPageJobs, totalPages } = await fetchPage(1);
+    allJobs.push(...firstPageJobs);
 
-    const $ = cheerio.load(html);
-    const jobs = [];
+    const lastPage = Math.min(totalPages, MAX_PAGES);
+    for (let page = 2; page <= lastPage; page++) {
+      await sleep(PAGE_DELAY_MS);
+      try {
+        const { jobs: pageJobs } = await fetchPage(page);
+        if (!pageJobs.length) break; // página vazia, para (evita continuar batendo à toa)
+        allJobs.push(...pageJobs);
+      } catch (err) {
+        console.warn(`[vagascombr] falha na página ${page} (best-effort, parando paginação):`, err.message);
+        break;
+      }
+    }
 
-    $('li.vaga').each((_, el) => {
-      const card = $(el);
-      const titleEl = card.find('a.link-detalhes-vaga').first();
-      if (!titleEl.length) return;
-
-      const href = titleEl.attr('href') || '';
-      const url = href.startsWith('http') ? href : `${BASE_URL}${href}`;
-      // externalId: data-id-vaga; fallback pro /v{id}/ do path
-      const externalId =
-        titleEl.attr('data-id-vaga') ||
-        (href.match(/\/v(\d+)\//) || [])[1] ||
-        href;
-
-      const title = titleEl.text().replace(/\s+/g, ' ').trim();
-      const company = card.find('.emprVaga').first().text().replace(/\s+/g, ' ').trim() || null;
-      const nivel = card.find('.nivelVaga').first().text().replace(/\s+/g, ' ').trim();
-
-      // .vaga-local contém o texto da cidade seguido de um tooltip; pegar só o texto direto
-      const localEl = card.find('.vaga-local').first().clone();
-      localEl.find('.tooltip-place').remove();
-      localEl.find('i').remove();
-      const location = localEl.text().replace(/\s+/g, ' ').trim() || null;
-
-      const description = card.find('.detalhes p').first().text().replace(/\s+/g, ' ').trim() || title;
-      const postedAt = parseBrDate(card.find('.data-publicacao').first().text());
-
-      jobs.push({
-        source: 'vagascombr',
-        externalId: String(externalId),
-        title,
-        company,
-        location,
-        description,
-        tags: nivel ? [nivel] : [],
-        url,
-        postedAt,
-      });
-    });
-
-    if (!jobs.length) {
+    if (!allJobs.length) {
       console.warn('[vagascombr] nenhum card de vaga encontrado no HTML (best-effort, retornando vazio)');
     }
-    return jobs;
+    return allJobs;
   } catch (err) {
     console.error('[vagascombr] falha ao coletar (best-effort, ignorando):', err.message);
-    return [];
+    return allJobs;
   }
 }

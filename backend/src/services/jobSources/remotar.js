@@ -1,9 +1,16 @@
 import { chromium } from 'playwright';
 
 const BASE_URL = 'https://remotar.com.br';
+// Categorias tech no filtro do site (descobertas via inspeção real, 2026-07-15):
+// 4=Data Science/Analytics, 7=DevOps, 8=QA, 9=SysAdmin, 13=Programação, 14=Programação Mobile.
+// Sem esse filtro a listagem traz TODAS as áreas (vendas, RH, jurídico etc. — ~650 vagas);
+// filtrando na fonte já cai pra ~50 vagas relevantes, economizando resumo por IA à toa.
+const SEARCH_URL = 'https://remotar.com.br/search/jobs?q=&c=4&c=7&c=13&c=14&c=8&c=9';
 const GOTO_TIMEOUT_MS = 15000;
 const DETAIL_CONCURRENCY = 6; // páginas de detalhe abertas em paralelo (lotes, não uma aba por vaga isolada)
-const MAX_DETAIL_PAGES = 25; // limite defensivo pra não deixar a coleta lenta demais
+const MAX_DETAIL_PAGES = 100; // limite defensivo (listagem filtrada por categoria já é bem menor que o site inteiro)
+const MAX_SCROLL_ATTEMPTS = 40; // trava de segurança pro loop de scroll infinito
+const SCROLL_STABLE_ROUNDS = 2; // quantas rodadas sem novos cards até considerar "carregou tudo"
 
 let browserPromise = null;
 
@@ -80,6 +87,25 @@ async function extractDetailDescription(browser, url) {
   }
 }
 
+// A listagem carrega mais cards via scroll infinito (sem paginação por URL nem "carregar mais"
+// visível) - vai scrollando até o número de cards parar de crescer por algumas rodadas seguidas.
+async function scrollUntilStable(page) {
+  let lastCount = -1;
+  let stableRounds = 0;
+  for (let i = 0; i < MAX_SCROLL_ATTEMPTS; i++) {
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await page.waitForTimeout(800);
+    const count = await page.evaluate(() => document.querySelectorAll('.job-content-box').length);
+    if (count === lastCount) {
+      stableRounds++;
+      if (stableRounds >= SCROLL_STABLE_ROUNDS) break;
+    } else {
+      stableRounds = 0;
+    }
+    lastCount = count;
+  }
+}
+
 async function mapWithConcurrency(items, limit, fn) {
   const results = new Array(items.length);
   let index = 0;
@@ -100,7 +126,8 @@ export async function fetchJobs() {
     const page = await browser.newPage();
     let cards;
     try {
-      await gotoWithRetry(page, BASE_URL);
+      await gotoWithRetry(page, SEARCH_URL);
+      await scrollUntilStable(page);
       cards = await extractListingCards(page);
     } finally {
       await page.close();

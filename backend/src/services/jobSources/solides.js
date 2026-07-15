@@ -15,6 +15,7 @@ import axios from 'axios';
 const API_URL = 'https://apigw.solides.com.br/jobs/v3/portal-vacancies-new';
 const PORTAL_URL = 'https://vagas.solides.com.br';
 const TAKE = 40; // quantas vagas puxar por vez
+const MAX_PAGES = 30; // limite defensivo
 
 const BROWSER_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
@@ -83,28 +84,47 @@ function normalize(v) {
   };
 }
 
+async function fetchPage(page) {
+  const { data } = await axios.get(API_URL, {
+    params: { title: '', locations: '', take: TAKE, page },
+    headers: {
+      'User-Agent': BROWSER_UA,
+      Accept: 'application/json, text/plain, */*',
+      Origin: PORTAL_URL,
+      Referer: `${PORTAL_URL}/`,
+    },
+    timeout: 15000,
+  });
+
+  const list = data?.data?.data;
+  const totalPages = Number(data?.data?.totalPages) || 0;
+  return { list: Array.isArray(list) ? list : [], totalPages };
+}
+
 export async function fetchJobs() {
   try {
-    const { data } = await axios.get(API_URL, {
-      params: { title: '', locations: '', take: TAKE, page: 1 },
-      headers: {
-        'User-Agent': BROWSER_UA,
-        Accept: 'application/json, text/plain, */*',
-        Origin: PORTAL_URL,
-        Referer: `${PORTAL_URL}/`,
-      },
-      timeout: 15000,
-    });
-
-    const list = data?.data?.data;
-    if (!Array.isArray(list) || list.length === 0) {
+    const { list: firstPageList, totalPages } = await fetchPage(1);
+    if (!firstPageList.length) {
       console.warn(
-        `[solides] endpoint retornou 0 vagas (count=${data?.data?.count ?? 'n/a'}) — portal sem vagas ativas no momento (best-effort, retornando vazio)`
+        `[solides] endpoint retornou 0 vagas — portal sem vagas ativas no momento (best-effort, retornando vazio)`
       );
       return [];
     }
 
-    const jobs = list.map(normalize).filter(Boolean);
+    const rawJobs = [...firstPageList];
+    const lastPage = Math.min(totalPages, MAX_PAGES);
+    for (let page = 2; page <= lastPage; page++) {
+      try {
+        const { list: pageList } = await fetchPage(page);
+        if (!pageList.length) break;
+        rawJobs.push(...pageList);
+      } catch (err) {
+        console.warn(`[solides] falha na página ${page} (best-effort, parando paginação):`, err.message);
+        break;
+      }
+    }
+
+    const jobs = rawJobs.map(normalize).filter(Boolean);
     if (!jobs.length) {
       console.warn('[solides] endpoint retornou itens, mas nenhum pôde ser normalizado (best-effort, retornando vazio)');
     }
