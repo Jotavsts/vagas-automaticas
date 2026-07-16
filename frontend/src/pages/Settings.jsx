@@ -80,6 +80,7 @@ function Settings() {
                     <input
                       value={editLabel}
                       onChange={(e) => setEditLabel(e.target.value)}
+                      aria-label="Novo nome do currículo"
                       className="px-2.5 py-1 rounded-lg border border-border bg-surface text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
                     <Button variant="primary" onClick={() => handleRename(cv.id)}>
@@ -129,6 +130,7 @@ function Settings() {
               type="file"
               accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
+              aria-label="Selecionar arquivo de currículo (PDF ou DOCX)"
               className="w-full mb-3 text-sm text-ink-secondary file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-tag file:text-tag-ink file:text-xs file:font-semibold"
             />
             {error && <p className="text-xs text-danger-ink mb-2">{error}</p>}

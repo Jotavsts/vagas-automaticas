@@ -11,6 +11,14 @@ function AdaptModal({ job, onClose, onApproved }) {
   const [approving, setApproving] = useState(false)
 
   useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
+  useEffect(() => {
     let cancelled = false
     async function run() {
       setLoading(true)
@@ -57,6 +65,9 @@ function AdaptModal({ job, onClose, onApproved }) {
   return (
     <div className="fixed inset-0 bg-ink/30 flex items-center justify-center p-4 z-50" onClick={onClose}>
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="adapt-modal-title"
         className="bg-surface rounded-2xl p-6 max-w-md w-full border border-border shadow-2xl shadow-primary/20"
         onClick={(e) => e.stopPropagation()}
       >
@@ -76,7 +87,7 @@ function AdaptModal({ job, onClose, onApproved }) {
         {!loading && adaptation && (
           <div>
             <div className="flex justify-between items-start mb-4">
-              <div className="text-title font-bold text-ink pr-3">{job.title}</div>
+              <div id="adapt-modal-title" className="text-title font-bold text-ink pr-3">{job.title}</div>
               <Badge score={adaptation.match_score} />
             </div>
 

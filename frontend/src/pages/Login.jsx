@@ -35,8 +35,9 @@ function Login() {
         <h1 className="text-lg font-bold text-ink mb-1">Entrar</h1>
         <p className="text-sm text-ink-secondary mb-5">Adapta Aí</p>
 
-        <label className="block text-xs font-semibold text-ink-secondary mb-1">Email</label>
+        <label htmlFor="login-email" className="block text-xs font-semibold text-ink-secondary mb-1">Email</label>
         <input
+          id="login-email"
           type="email"
           required
           value={email}
@@ -44,8 +45,9 @@ function Login() {
           className="w-full mb-3 px-3.5 py-2 rounded-lg border border-border bg-surface text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
 
-        <label className="block text-xs font-semibold text-ink-secondary mb-1">Senha</label>
+        <label htmlFor="login-password" className="block text-xs font-semibold text-ink-secondary mb-1">Senha</label>
         <input
+          id="login-password"
           type="password"
           required
           value={password}
@@ -53,7 +55,7 @@ function Login() {
           className="w-full mb-4 px-3.5 py-2 rounded-lg border border-border bg-surface text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
 
-        {error && <p className="text-xs text-danger-ink mb-3">{error}</p>}
+        {error && <p role="alert" className="text-xs text-danger-ink mb-3">{error}</p>}
 
         <Button variant="primary" type="submit" className="w-full" disabled={loading}>
           {loading ? 'Entrando...' : 'Entrar'}

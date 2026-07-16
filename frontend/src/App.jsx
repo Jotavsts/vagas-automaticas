@@ -34,10 +34,12 @@ function AppShell() {
   return (
     <div className="min-h-screen bg-bg">
       <nav className="flex items-center justify-between gap-1 px-6 pt-5">
-        <div className="flex gap-1">
+        <div role="tablist" className="flex gap-1">
           {TABS.map((tab) => (
             <button
               key={tab.id}
+              role="tab"
+              aria-selected={activeTab === tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`px-3.5 py-2 rounded-t-lg text-sm font-semibold transition-colors ${
                 activeTab === tab.id
@@ -60,7 +62,7 @@ function AppShell() {
         </div>
       </nav>
 
-      <main className="bg-surface border-t border-border p-6 min-h-[calc(100vh-64px)]">
+      <main role="tabpanel" className="bg-surface border-t border-border p-6 min-h-[calc(100vh-64px)]">
         {activeTab === 'dashboard' && <Dashboard onAdapt={setModalJob} onViewAdaptation={setModalJob} />}
         {activeTab === 'history' && <History key={historyKey} />}
         {activeTab === 'settings' && <Settings />}

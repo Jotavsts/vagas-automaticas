@@ -49,8 +49,9 @@ function Signup() {
           Envie seu currículo e a IA já deixa tudo pronto pra você adaptar CVs por vaga.
         </p>
 
-        <label className="block text-xs font-semibold text-ink-secondary mb-1">Email</label>
+        <label htmlFor="signup-email" className="block text-xs font-semibold text-ink-secondary mb-1">Email</label>
         <input
+          id="signup-email"
           type="email"
           required
           value={email}
@@ -58,8 +59,9 @@ function Signup() {
           className="w-full mb-3 px-3.5 py-2 rounded-lg border border-border bg-surface text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
 
-        <label className="block text-xs font-semibold text-ink-secondary mb-1">Senha</label>
+        <label htmlFor="signup-password" className="block text-xs font-semibold text-ink-secondary mb-1">Senha</label>
         <input
+          id="signup-password"
           type="password"
           required
           minLength={6}
@@ -68,10 +70,11 @@ function Signup() {
           className="w-full mb-3 px-3.5 py-2 rounded-lg border border-border bg-surface text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary/40"
         />
 
-        <label className="block text-xs font-semibold text-ink-secondary mb-1">
+        <label htmlFor="signup-cv" className="block text-xs font-semibold text-ink-secondary mb-1">
           Currículo (PDF ou DOCX)
         </label>
         <input
+          id="signup-cv"
           type="file"
           required
           accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -79,7 +82,7 @@ function Signup() {
           className="w-full mb-4 text-sm text-ink-secondary file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-tag file:text-tag-ink file:text-xs file:font-semibold"
         />
 
-        {error && <p className="text-xs text-danger-ink mb-3">{error}</p>}
+        {error && <p role="alert" className="text-xs text-danger-ink mb-3">{error}</p>}
 
         <Button variant="primary" type="submit" className="w-full" disabled={loading}>
           {loading ? 'Criando conta e lendo seu CV...' : 'Criar conta'}
