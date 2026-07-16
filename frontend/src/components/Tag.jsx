@@ -6,7 +6,7 @@ function Tag({ variant = 'neutral', children }) {
     danger: 'bg-danger text-danger-ink font-semibold',
   }
   return (
-    <span className={`text-[11px] px-2 py-1 rounded-md ${variants[variant]}`}>
+    <span className={`text-micro px-2 py-1 rounded-md ${variants[variant]}`}>
       {children}
     </span>
   )

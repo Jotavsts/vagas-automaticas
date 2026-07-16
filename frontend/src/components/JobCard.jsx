@@ -18,8 +18,8 @@ function JobCard({ job, onAdapt, onViewAdaptation }) {
     <div className="bg-surface rounded-xl p-4 border border-border transition-all duration-150 hover:border-border-hover hover:shadow-lg hover:shadow-primary/10 hover:-translate-y-0.5">
       <div className="flex justify-between items-start gap-3">
         <div>
-          <div className="font-semibold text-ink text-[15px]">{job.title}</div>
-          <div className="text-ink-secondary text-[13px] mt-0.5">
+          <div className="font-semibold text-ink text-title">{job.title}</div>
+          <div className="text-ink-secondary text-caption mt-0.5">
             {job.company || 'Empresa não informada'}
             {job.location ? ` · ${job.location}` : ''}
           </div>

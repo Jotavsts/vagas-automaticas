@@ -27,6 +27,12 @@ export default {
         sans: ['Sora', 'system-ui', 'sans-serif'],
         mono: ['"IBM Plex Mono"', 'monospace'],
       },
+      fontSize: {
+        micro: ['11px', { lineHeight: '1.35' }],
+        caption: ['13px', { lineHeight: '1.45' }],
+        title: ['15px', { lineHeight: '1.5' }],
+        wordmark: ['19px', { lineHeight: '1.3' }],
+      },
     },
   },
   plugins: [],

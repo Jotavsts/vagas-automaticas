@@ -90,7 +90,7 @@ function Settings() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="font-semibold text-ink text-[15px] flex items-center gap-2">
+                  <div className="font-semibold text-ink text-title flex items-center gap-2">
                     {cv.label || 'Currículo'}
                     <button
                       onClick={() => {
@@ -103,7 +103,7 @@ function Settings() {
                     </button>
                   </div>
                 )}
-                <div className="text-[13px] text-ink-secondary mt-0.5">{cv.full_name}</div>
+                <div className="text-caption text-ink-secondary mt-0.5">{cv.full_name}</div>
                 <p className="text-xs text-ink-secondary mt-1.5 line-clamp-2">{cv.summary}</p>
               </div>
               {cvs.length > 1 && (

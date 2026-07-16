@@ -60,7 +60,7 @@ function Dashboard({ onAdapt, onViewAdaptation }) {
     <div>
       <div className="flex justify-between items-baseline mb-5">
         <div>
-          <div className="text-[19px] font-bold text-ink">Adapta Aí</div>
+          <div className="text-wordmark font-bold text-ink">Adapta Aí</div>
           <div className="text-xs text-ink-secondary mt-0.5">{jobs.length} vagas coletadas</div>
         </div>
         <Button variant="primary" onClick={handleCollect} disabled={collecting}>

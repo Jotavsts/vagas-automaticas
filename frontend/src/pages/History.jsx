@@ -25,8 +25,8 @@ function History() {
           className="bg-surface rounded-xl p-4 border border-border flex justify-between items-center"
         >
           <div>
-            <div className="font-semibold text-ink text-[15px]">{app.title}</div>
-            <div className="text-ink-secondary text-[13px] mt-0.5">
+            <div className="font-semibold text-ink text-title">{app.title}</div>
+            <div className="text-ink-secondary text-caption mt-0.5">
               {app.company} · aprovado em {new Date(app.approved_at).toLocaleDateString('pt-BR')}
             </div>
           </div>

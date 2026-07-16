@@ -75,8 +75,8 @@ function AdaptModal({ job, onClose, onApproved }) {
 
         {!loading && adaptation && (
           <div>
-            <div className="flex justify-between items-start mb-3.5">
-              <div className="text-base font-bold text-ink pr-3">{job.title}</div>
+            <div className="flex justify-between items-start mb-4">
+              <div className="text-title font-bold text-ink pr-3">{job.title}</div>
               <Badge score={adaptation.match_score} />
             </div>
 
@@ -86,7 +86,7 @@ function AdaptModal({ job, onClose, onApproved }) {
               </div>
             )}
 
-            <p className="text-[13px] text-ink leading-relaxed mb-3.5">
+            <p className="text-caption text-ink leading-relaxed mb-4">
               {adaptation.adapted_content.summary}
             </p>
 
