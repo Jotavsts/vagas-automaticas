@@ -22,6 +22,7 @@ function Settings() {
     load()
   }, [])
 
+  // Sem mensagem de sucesso explícita — o próprio currículo aparecendo/atualizando na lista já serve de confirmação visual.
   async function handleAdd(e) {
     e.preventDefault()
     setError(null)
@@ -116,6 +117,10 @@ function Settings() {
           </div>
         ))}
       </div>
+
+      {cvs.length === 0 && (
+        <p className="text-sm text-ink-secondary mb-3">Você ainda não tem nenhum currículo cadastrado.</p>
+      )}
 
       <form onSubmit={handleAdd} className="bg-surface rounded-xl p-4 border border-border">
         <div className="font-semibold text-ink text-sm mb-2">Adicionar currículo</div>

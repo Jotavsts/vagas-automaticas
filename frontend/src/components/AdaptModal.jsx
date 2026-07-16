@@ -59,6 +59,7 @@ function AdaptModal({ job, onClose, onApproved }) {
     window.open(result.jobUrl, '_blank')
     setApproving(false)
     onApproved()
+    // Fechamento imediato é intencional — o download do PDF e a aba da vaga já servem como confirmação visual, sem precisar de um estado de sucesso adicional no modal.
     onClose()
   }
 
@@ -128,6 +129,10 @@ function AdaptModal({ job, onClose, onApproved }) {
               </Button>
             </div>
           </div>
+        )}
+
+        {!loading && !rejected && !adaptation && (
+          <p className="text-sm text-ink-secondary">Nenhuma adaptação disponível pra essa vaga.</p>
         )}
       </div>
     </div>

@@ -8,6 +8,7 @@ function Dashboard({ onAdapt, onViewAdaptation }) {
   const [jobs, setJobs] = useState([])
   const [loading, setLoading] = useState(true)
   const [collecting, setCollecting] = useState(false)
+  const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
   const [source, setSource] = useState('')
   const [status, setStatus] = useState('')
@@ -16,8 +17,13 @@ function Dashboard({ onAdapt, onViewAdaptation }) {
 
   async function loadJobs() {
     setLoading(true)
-    const data = await getJobs()
-    setJobs(data)
+    try {
+      const data = await getJobs()
+      setJobs(data)
+      setError(null)
+    } catch (err) {
+      setError('Falha ao carregar vagas. Tente novamente.')
+    }
     setLoading(false)
   }
 
@@ -27,8 +33,12 @@ function Dashboard({ onAdapt, onViewAdaptation }) {
 
   async function handleCollect() {
     setCollecting(true)
-    await collectJobs()
-    await loadJobs()
+    try {
+      await collectJobs()
+      await loadJobs()
+    } catch (err) {
+      setError('Falha ao buscar vagas novas. Tente novamente.')
+    }
     setCollecting(false)
   }
 
@@ -82,6 +92,8 @@ function Dashboard({ onAdapt, onViewAdaptation }) {
         sources={sources}
         states={states}
       />
+
+      {error && <p className="text-sm text-danger-ink mb-3">{error}</p>}
 
       {loading ? (
         <p className="text-ink-secondary text-sm">Carregando vagas...</p>
