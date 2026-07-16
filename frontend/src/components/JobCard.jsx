@@ -22,6 +22,7 @@ function JobCard({ job, onAdapt, onViewAdaptation }) {
           <div className="text-ink-secondary text-caption mt-0.5">
             {job.company || 'Empresa não informada'}
             {job.location ? ` · ${job.location}` : ''}
+            {job.posted_at ? ` · Publicada em ${new Date(job.posted_at).toLocaleDateString('pt-BR')}` : ''}
           </div>
         </div>
         <Badge score={job.relevance_score} />
