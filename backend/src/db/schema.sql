@@ -27,7 +27,7 @@ CREATE TABLE preferences (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TYPE job_source AS ENUM ('remotar','vagascombr','empregaju','solides');
+CREATE TYPE job_source AS ENUM ('remotar','vagascombr','empregaju','solides','infojobs');
 
 CREATE TABLE jobs (
   id SERIAL PRIMARY KEY,

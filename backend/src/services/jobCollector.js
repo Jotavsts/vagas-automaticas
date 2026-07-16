@@ -2,6 +2,7 @@ import { fetchJobs as fetchRemotar } from './jobSources/remotar.js';
 import { fetchJobs as fetchVagasComBr } from './jobSources/vagascombr.js';
 import { fetchJobs as fetchEmpregaju } from './jobSources/empregaju.js';
 import { fetchJobs as fetchSolides } from './jobSources/solides.js';
+import { fetchJobs as fetchInfojobs } from './jobSources/infojobs.js';
 import { summarizeJob } from './jobSummarizer.js';
 import { pool } from '../utils/db.js';
 
@@ -10,6 +11,7 @@ const SOURCES = [
   { name: 'vagascombr', fn: fetchVagasComBr },
   { name: 'empregaju', fn: fetchEmpregaju },
   { name: 'solides', fn: fetchSolides },
+  { name: 'infojobs', fn: fetchInfojobs },
 ];
 
 const SUMMARIZE_CONCURRENCY = 5;
