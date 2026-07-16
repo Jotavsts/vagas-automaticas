@@ -30,7 +30,7 @@ function Login() {
     <div className="min-h-screen bg-bg flex items-center justify-center p-4">
       <form
         onSubmit={handleSubmit}
-        className="bg-surface rounded-2xl p-6 max-w-sm w-full border border-border shadow-2xl shadow-primary/10"
+        className="bg-surface rounded-2xl p-6 max-w-sm w-full border border-border"
       >
         <h1 className="text-lg font-bold text-ink mb-1">Entrar</h1>
         <p className="text-sm text-ink-secondary mb-5">Adapta Aí</p>

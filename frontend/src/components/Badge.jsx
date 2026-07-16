@@ -9,7 +9,10 @@ function Badge({ score }) {
     classes = 'bg-muted text-muted-ink'
   }
   return (
-    <span className={`font-mono text-xs font-medium px-2.5 py-1 rounded-md whitespace-nowrap ${classes}`}>
+    <span
+      className={`font-mono text-xs font-medium px-2.5 py-1 rounded-md whitespace-nowrap ${classes}`}
+      aria-label={`${value}% de compatibilidade com a vaga`}
+    >
       {value}%
     </span>
   )

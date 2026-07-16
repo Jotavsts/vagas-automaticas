@@ -68,7 +68,7 @@ function AdaptModal({ job, onClose, onApproved }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="adapt-modal-title"
-        className="bg-surface rounded-2xl p-6 max-w-md w-full border border-border shadow-2xl shadow-primary/20"
+        className="bg-surface rounded-2xl p-6 max-w-md w-full border border-border"
         onClick={(e) => e.stopPropagation()}
       >
         {loading && <p className="text-ink-secondary text-sm">Adaptando currículo para esta vaga...</p>}
