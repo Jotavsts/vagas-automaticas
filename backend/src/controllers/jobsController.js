@@ -1,7 +1,13 @@
-import { computeRelevanceScore } from '../services/jobCollector.js';
+import { computeRelevanceScoreWithBreakdown } from '../services/jobCollector.js';
 import { runCollection } from '../services/jobScheduler.js';
 import { pool } from '../utils/db.js';
 
+/**
+ * POST /api/jobs/collect - dispara coleta manual de vagas.
+ *
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ */
 export async function collect(req, res) {
   try {
     const summary = await runCollection('manual');
@@ -13,8 +19,11 @@ export async function collect(req, res) {
 }
 
 /**
- * GET /api/jobs - lista o pool global de vagas, com relevance_score e status
+ * GET /api/jobs - lista o pool global de vagas, com relevance_score e score_breakdown
  * calculados por usuário (a vaga é compartilhada, mas score/status são pessoais).
+ *
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
  */
 export async function listJobs(req, res) {
   const { status: statusFilter } = req.query;
@@ -36,7 +45,8 @@ export async function listJobs(req, res) {
     const jobs = jobsResult.rows.map((row) => {
       const { applied_id, adapted_id, ...job } = row;
       const status = applied_id ? 'approved' : adapted_id ? 'adapted' : 'new';
-      return { ...job, status, relevance_score: computeRelevanceScore(job, keywords) };
+      const breakdown = computeRelevanceScoreWithBreakdown(job, keywords);
+      return { ...job, status, relevance_score: breakdown.score, score_breakdown: breakdown };
     });
 
     const filtered = statusFilter ? jobs.filter((j) => j.status === statusFilter) : jobs;

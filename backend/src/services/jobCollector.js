@@ -3,6 +3,7 @@ import { fetchJobs as fetchVagasComBr } from './jobSources/vagascombr.js';
 import { fetchJobs as fetchEmpregaju } from './jobSources/empregaju.js';
 import { fetchJobs as fetchSolides } from './jobSources/solides.js';
 import { fetchJobs as fetchInfojobs } from './jobSources/infojobs.js';
+import { fetchJobs as fetchTelegram } from './jobSources/telegram.js';
 import { summarizeJob } from './jobSummarizer.js';
 import { pool } from '../utils/db.js';
 
@@ -12,6 +13,7 @@ const SOURCES = [
   { name: 'empregaju', fn: fetchEmpregaju },
   { name: 'solides', fn: fetchSolides },
   { name: 'infojobs', fn: fetchInfojobs },
+  { name: 'telegram', fn: fetchTelegram },
 ];
 
 const SUMMARIZE_CONCURRENCY = 5;
@@ -34,13 +36,69 @@ function seniorityAdjustment(title) {
  * Chamado por usuário em tempo de leitura (cada usuário tem suas próprias keywords
  * em preferences), não mais gravado globalmente na coleta.
  */
-export function computeRelevanceScore(job, keywords) {
-  if (keywords.length === 0) return 0;
+/**
+ * @typedef {Object} ScoreBreakdown
+ * @property {number} score - Score final 0-100
+ * @property {string[]} matched_keywords - Keywords do perfil encontradas na vaga
+ * @property {string[]} missing_keywords - Keywords do perfil ausentes na vaga
+ * @property {number} seniority_adjustment - Ajuste aplicado (+15 júnior, -30 sênior, 0 neutro)
+ * @property {string|null} seniority_signal - Sinal de senioridade detectado no título, ou null
+ */
+
+/**
+ * Calcula o score de relevância com breakdown detalhado.
+ *
+ * @param {object} job - Linha da tabela jobs ({ title, summary, keywords, tags })
+ * @param {string[]} keywords - Keywords do usuário (de preferences.keywords)
+ * @returns {ScoreBreakdown}
+ */
+export function computeRelevanceScoreWithBreakdown(job, keywords) {
+  if (keywords.length === 0) {
+    return { score: 0, matched_keywords: [], missing_keywords: [], seniority_adjustment: 0, seniority_signal: null };
+  }
+
+  const titleLower = (job.title || '').toLowerCase();
   const haystack = `${job.title} ${job.summary || ''} ${(job.keywords || []).join(' ')} ${(job.tags || []).join(' ')}`.toLowerCase();
-  const matches = keywords.filter((k) => haystack.includes(k.toLowerCase())).length;
-  const base = Math.round((matches / keywords.length) * 100);
-  const adjusted = base + seniorityAdjustment(job.title);
-  return Math.max(0, Math.min(100, adjusted));
+  
+  const matched_keywords = keywords.filter((k) => haystack.includes(k.toLowerCase()));
+  const missing_keywords = keywords.filter((k) => !haystack.includes(k.toLowerCase()));
+
+  // Base proporcional de keywords
+  let base = Math.round((matched_keywords.length / keywords.length) * 100);
+
+  // Bônus se a keyword bateu DIRETO no título da vaga (sinal de altíssima relevância)
+  const titleMatches = keywords.filter((k) => titleLower.includes(k.toLowerCase()));
+  if (titleMatches.length > 0) {
+    base += Math.min(30, titleMatches.length * 15);
+  }
+
+  let seniority_adjustment = 0;
+  let seniority_signal = null;
+
+  if (SENIOR_SIGNALS.some((s) => titleLower.includes(s))) {
+    seniority_adjustment = -60; // Penalidade forte para Sênior/Lead/Head
+    seniority_signal = SENIOR_SIGNALS.find((s) => titleLower.includes(s));
+  } else if (JUNIOR_SIGNALS.some((s) => titleLower.includes(s))) {
+    seniority_adjustment = 20; // Valorização de vagas Júnior/Estágio
+    seniority_signal = JUNIOR_SIGNALS.find((s) => titleLower.includes(s));
+  }
+
+  const score = Math.max(0, Math.min(100, base + seniority_adjustment));
+  return { score, matched_keywords, missing_keywords, seniority_adjustment, seniority_signal };
+}
+
+/**
+ * Calcula o score de relevância de uma vaga para um conjunto de keywords.
+ * Wrapper de retrocompatibilidade sobre computeRelevanceScoreWithBreakdown.
+ * Chamado por usuário em tempo de leitura (cada usuário tem suas próprias keywords
+ * em preferences), não mais gravado globalmente na coleta.
+ *
+ * @param {object} job - Linha da tabela jobs
+ * @param {string[]} keywords - Keywords do usuário
+ * @returns {number} Score 0-100
+ */
+export function computeRelevanceScore(job, keywords) {
+  return computeRelevanceScoreWithBreakdown(job, keywords).score;
 }
 
 /**
@@ -78,7 +136,18 @@ export async function collectJobs() {
   const { rows: areas } = await pool.query('SELECT * FROM active_job_areas WHERE active = true ORDER BY id');
   const effectiveAreas = areas.length ? areas : DEFAULT_AREAS; // defensivo: funciona mesmo antes da seed rodar
 
-  const results = await Promise.allSettled(SOURCES.map((s) => s.fn(effectiveAreas)));
+  // Agrega todos os canais Telegram configurados pelos usuários (de todas as preferences)
+  const { rows: channelRows } = await pool.query(
+    'SELECT telegram_channels FROM preferences WHERE telegram_channels IS NOT NULL AND array_length(telegram_channels, 1) > 0'
+  );
+  const userChannels = [...new Set(channelRows.flatMap((r) => r.telegram_channels || []))];
+
+  const results = await Promise.allSettled(
+    SOURCES.map((s) =>
+      s.name === 'telegram' ? s.fn(effectiveAreas, userChannels) : s.fn(effectiveAreas)
+    )
+  );
+
 
   const bySource = {};
   let totalFound = 0;
@@ -107,8 +176,30 @@ export async function collectJobs() {
 
     const summarized = await summarizeInBatches(newJobs);
 
+/**
+ * Regra de localização:
+ * - Vagas REMOTAS são aceitas de qualquer lugar do Brasil/Mundo.
+ * - Vagas PRESENCIAIS / HÍBRIDAS só são aceitas se forem em Aracaju / SE (Sergipe).
+ * Vagas presenciais/híbridas de outros estados (ex: SP, RJ, PR) são descartadas.
+ */
+export function isJobLocationAllowed(job) {
+  if (job.modality === 'remoto') return true;
+
+  const loc = `${job.location || ''} ${job.state || ''}`.toLowerCase();
+  const isAracajuOrSE =
+    loc.includes('aracaju') ||
+    loc.includes('sergipe') ||
+    /\bse\b/.test(loc);
+
+  return isAracajuOrSE;
+}
+
     let insertedCount = 0;
     for (const job of summarized) {
+      if (!isJobLocationAllowed(job)) {
+        continue; // Descarta vagas presenciais/híbridas fora de Aracaju/SE
+      }
+
       const insertResult = await pool.query(
         `INSERT INTO jobs (source, external_id, title, company, location, modality, state, summary, keywords, tags, url, posted_at)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
