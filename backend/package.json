@@ -1,7 +1,7 @@
 {
-  "name": "vagas-automaticas-backend",
+  "name": "adapta-ai-backend",
   "version": "1.0.0",
-  "description": "Backend para automação de envio de currículos",
+  "description": "Backend do Adapta Aí — automação inteligente de candidaturas",
   "main": "src/index.js",
   "type": "module",
   "scripts": {

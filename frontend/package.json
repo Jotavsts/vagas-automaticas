@@ -1,7 +1,7 @@
 {
-  "name": "vagas-automaticas-frontend",
+  "name": "adapta-ai-frontend",
   "version": "1.0.0",
-  "description": "Frontend para automação de envio de currículos",
+  "description": "Frontend do Adapta Aí",
   "type": "module",
   "scripts": {
     "dev": "vite",

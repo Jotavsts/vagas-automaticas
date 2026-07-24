@@ -39,3 +39,9 @@ backend/generated-cvs/
 
 # Sessoes de brainstorming visual (mockups temporarios)
 .superpowers/
+
+# Agentes e notas internas de planejamento
+.agents/
+plans/
+DESIGN-IS-*/
+
