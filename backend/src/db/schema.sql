@@ -27,7 +27,7 @@ CREATE TABLE preferences (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE TYPE job_source AS ENUM ('remotar','vagascombr','empregaju','solides','infojobs');
+CREATE TYPE job_source AS ENUM ('remotar','vagascombr','empregaju','solides','infojobs','telegram');
 
 CREATE TABLE jobs (
   id SERIAL PRIMARY KEY,
@@ -87,3 +87,31 @@ CREATE TABLE applications (
   approved_at TIMESTAMPTZ DEFAULT now(),
   opened_url TEXT
 );
+
+-- ============================================================
+-- Agentes — migrations aplicadas como ALTER (não recriar as tabelas)
+-- ============================================================
+
+-- Agente: Rastreamento de Candidaturas
+-- Adiciona estados de progresso às candidaturas
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'application_status') THEN
+    CREATE TYPE application_status AS ENUM (
+      'enviado', 'em_processo', 'oferta', 'rejeitado', 'desistiu'
+    );
+  END IF;
+END $$;
+
+ALTER TABLE applications
+  ADD COLUMN IF NOT EXISTS status application_status DEFAULT 'enviado';
+
+-- Agente: Notificador Telegram
+-- Permite chat_id por usuário (Fase 2); Fase 1 usa TELEGRAM_CHAT_ID do .env
+ALTER TABLE preferences
+  ADD COLUMN IF NOT EXISTS telegram_chat_id TEXT;
+
+-- Gerenciamento de Canais Telegram pelo usuário via UI
+ALTER TABLE preferences
+  ADD COLUMN IF NOT EXISTS telegram_channels TEXT[] DEFAULT '{}';
+
+

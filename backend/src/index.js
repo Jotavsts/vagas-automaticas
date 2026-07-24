@@ -7,8 +7,9 @@ import jobsRouter from './routes/jobs.js';
 import cvRouter from './routes/cv.js';
 import applicationsRouter from './routes/applications.js';
 import authRouter from './routes/auth.js';
+import channelsRouter from './routes/channels.js';
 import { requireAuth } from './middleware/requireAuth.js';
-import { startScheduler } from './services/jobScheduler.js';
+import { startScheduler, startCleanupScheduler } from './services/jobScheduler.js';
 
 dotenv.config();
 
@@ -28,9 +29,11 @@ app.use('/api/auth', authRouter);
 app.use('/api/jobs', requireAuth, jobsRouter);
 app.use('/api/cv', requireAuth, cvRouter);
 app.use('/api/applications', requireAuth, applicationsRouter);
+app.use('/api/channels', requireAuth, channelsRouter);
 app.use('/generated-cvs', express.static(path.join(__dirname, '..', 'generated-cvs')));
 
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
   startScheduler();
+  startCleanupScheduler();
 });
