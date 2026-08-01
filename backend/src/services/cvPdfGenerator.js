@@ -1,5 +1,5 @@
 import { chromium } from 'playwright';
-import { mkdir, writeFile } from 'fs/promises';
+import { mkdir, writeFile, readFile } from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { slugify } from '../utils/slugify.js';
@@ -7,6 +7,27 @@ import { slugify } from '../utils/slugify.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // backend/src/services -> backend/generated-cvs
 const OUTPUT_DIR = path.join(__dirname, '..', '..', 'generated-cvs');
+const ICONS_DIR = path.join(__dirname, '..', 'assets', 'icons');
+
+const NAVY = '#1F2937';
+const GRAY = '#555555';
+
+let iconsDataUriPromise = null;
+async function loadIcons() {
+  if (!iconsDataUriPromise) {
+    iconsDataUriPromise = (async () => {
+      const names = ['email', 'phone', 'linkedin', 'github', 'location'];
+      const entries = await Promise.all(
+        names.map(async (n) => {
+          const buf = await readFile(path.join(ICONS_DIR, `icon_${n}.png`));
+          return [n, `data:image/png;base64,${buf.toString('base64')}`];
+        })
+      );
+      return Object.fromEntries(entries);
+    })();
+  }
+  return iconsDataUriPromise;
+}
 
 function abbreviateCompany(company) {
   if (!company || /não informada/i.test(company)) return '';
@@ -30,159 +51,172 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-function renderContactLine(contact = {}) {
-  const parts = [contact.phone, contact.email, contact.location]
-    .filter(Boolean)
-    .map(escapeHtml);
-  return parts.join(' | ');
+function iconRow(iconSrc, text) {
+  if (!text) return '';
+  return `<div class="icon-row"><img src="${iconSrc}" class="icon" /><span>${escapeHtml(text)}</span></div>`;
 }
 
-function renderLinksLine(contact = {}) {
-  const parts = [];
-  if (contact.linkedin) parts.push(`LinkedIn: ${escapeHtml(contact.linkedin)}`);
-  if (contact.github) parts.push(`GitHub: ${escapeHtml(contact.github)}`);
-  return parts.join(' | ');
+function renderContactGrid(contact = {}, icons) {
+  return `
+    <div class="phone-row">${iconRow(icons.phone, contact.phone)}</div>
+    <div class="contact-grid">
+      ${iconRow(icons.email, contact.email)}
+      ${iconRow(icons.linkedin, contact.linkedin)}
+      ${iconRow(icons.github, contact.github)}
+      ${iconRow(icons.location, contact.location)}
+    </div>
+  `;
+}
+
+function renderSkillsSection(skills = {}) {
+  const rows = [
+    ['Linguagens', skills.languages],
+    ['Inteligência Artificial', skills.ai],
+    ['Cloud e Infraestrutura', skills.cloud],
+    ['Ferramentas e Práticas', skills.tools],
+  ];
+  const lines = rows
+    .filter(([, list]) => Array.isArray(list) && list.length > 0)
+    .map(([label, list]) => `<p><strong>${escapeHtml(label)}:</strong> ${list.map(escapeHtml).join(', ')}</p>`)
+    .join('\n');
+  return lines ? `<h2>Habilidades</h2>${lines}` : '';
 }
 
 function renderExperience(experience = []) {
   return experience
     .map((item) => {
-      const bullets = (item.bullets || [])
-        .map((bullet) => `<li>${escapeHtml(bullet)}</li>`)
-        .join('\n');
+      const bullets = (item.bullets || []).map((b) => `<li>${escapeHtml(b)}</li>`).join('\n');
       const endDate = item.end_date ? escapeHtml(item.end_date) : 'Presente';
       return `
         <div class="entry">
           <div class="row">
-            <strong>${escapeHtml(item.company)}</strong>
-            <span>${escapeHtml(item.location)}</span>
+            <span><strong>${escapeHtml(item.role)}</strong> &ndash; ${escapeHtml(item.company)}</span>
+            <span class="period">${escapeHtml(item.start_date)} &ndash; ${endDate}</span>
           </div>
-          <div class="row">
-            <em>${escapeHtml(item.role)}</em>
-            <span>${escapeHtml(item.start_date)} &ndash; ${endDate}</span>
-          </div>
-          <ul>
-            ${bullets}
-          </ul>
+          <ul>${bullets}</ul>
         </div>
       `;
     })
     .join('\n');
+}
+
+function renderProjects(projects = []) {
+  if (!Array.isArray(projects) || projects.length === 0) return '';
+  const items = projects
+    .map((p) => {
+      const skillsLine = Array.isArray(p.skills) && p.skills.length
+        ? `<p><strong>Habilidades:</strong> ${p.skills.map(escapeHtml).join(', ')}</p>` : '';
+      const toolsLine = Array.isArray(p.tools) && p.tools.length
+        ? `<p><strong>Ferramentas:</strong> ${p.tools.map(escapeHtml).join(', ')}</p>` : '';
+      return `
+        <div class="entry">
+          <p class="project-name"><strong>${escapeHtml(p.name)}</strong></p>
+          <p>${escapeHtml(p.body)}</p>
+          ${skillsLine}
+          ${toolsLine}
+        </div>
+      `;
+    })
+    .join('\n');
+  return `<h2>Cursos e Experiências Adicionais</h2>${items}`;
 }
 
 function renderEducation(education = []) {
   return education
-    .map((item) => {
-      return `
+    .map((item) => `
         <div class="entry">
-          <div class="row">
-            <strong>${escapeHtml(item.institution)}</strong>
-            <span>${escapeHtml(item.location)}</span>
-          </div>
-          <div class="row">
-            <em>${escapeHtml(item.degree)}</em>
-            <span>${escapeHtml(item.expected_completion)}</span>
-          </div>
+          <p><strong>${escapeHtml(item.degree)}</strong> &ndash; ${escapeHtml(item.institution)}</p>
+          <p class="period">${escapeHtml(item.expected_completion)}</p>
         </div>
-      `;
-    })
+      `)
     .join('\n');
 }
 
-function renderSkillsLine(label, list = []) {
-  return `<p><strong>${escapeHtml(label)}:</strong> ${(list || [])
-    .map(escapeHtml)
-    .join(', ')}</p>`;
+function renderLanguages(languages = []) {
+  if (!Array.isArray(languages) || languages.length === 0) return '';
+  const items = languages.map((l) => `<p>${escapeHtml(l.lang)}: ${escapeHtml(l.level)}</p>`).join('\n');
+  return `<h2>Idiomas</h2>${items}`;
 }
 
-function renderHtml(content) {
+function renderHtml(content, icons) {
   const contact = content.contact || {};
-  const skills = content.skills || {};
+  const titleLine = content.title ? `<span class="title">&nbsp;&ndash;&nbsp;${escapeHtml(content.title)}</span>` : '';
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8" />
 <style>
-  @page {
-    size: A4;
-    margin: 2cm;
-  }
+  @page { size: A4; margin: 1.6cm; }
   body {
-    font-family: Arial, Helvetica, sans-serif;
+    font-family: Calibri, 'Segoe UI', Arial, sans-serif;
     color: #1a1a1a;
     background: #ffffff;
-    font-size: 11pt;
+    font-size: 10.5pt;
     line-height: 1.4;
   }
   h1 {
-    text-align: center;
-    font-size: 20pt;
+    font-size: 19pt;
     font-weight: bold;
+    color: ${NAVY};
     margin: 0 0 6px 0;
   }
-  .contact-line {
-    text-align: center;
-    margin: 0 0 2px 0;
+  h1 .title {
     font-size: 10pt;
-    color: #333333;
+    font-weight: bold;
+    color: ${GRAY};
   }
   h2 {
     text-transform: uppercase;
     letter-spacing: 1px;
-    font-size: 12pt;
-    border-bottom: 1px solid #333333;
+    font-size: 11.5pt;
+    font-weight: bold;
+    border-bottom: 1.5px solid ${NAVY};
     padding-bottom: 3px;
-    margin-top: 18px;
+    margin-top: 16px;
     margin-bottom: 8px;
-    color: #1a1a1a;
+    color: ${NAVY};
   }
-  .entry {
+  .phone-row { margin-bottom: 6px; }
+  .contact-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    row-gap: 4px;
     margin-bottom: 10px;
   }
-  .row {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-  }
-  ul {
-    margin: 4px 0 0 0;
-    padding-left: 18px;
-  }
-  li {
-    margin-bottom: 2px;
-  }
-  p {
-    margin: 4px 0;
-  }
+  .icon-row { display: flex; align-items: center; gap: 6px; font-size: 9pt; color: ${GRAY}; font-weight: bold; }
+  .icon { width: 14px; height: 14px; flex-shrink: 0; }
+  .entry { margin-bottom: 10px; }
+  .row { display: flex; justify-content: space-between; align-items: baseline; }
+  .period { color: ${GRAY}; font-style: italic; font-size: 9.5pt; white-space: nowrap; }
+  .project-name { margin-bottom: 2px; }
+  ul { margin: 4px 0 0 0; padding-left: 18px; }
+  li { margin-bottom: 2px; }
+  p { margin: 3px 0; }
 </style>
 </head>
 <body>
-  <h1>${escapeHtml(content.full_name)}</h1>
-  <p class="contact-line">${renderContactLine(contact)}</p>
-  <p class="contact-line">${renderLinksLine(contact)}</p>
+  <h1>${escapeHtml(content.full_name)}${titleLine}</h1>
+  ${renderContactGrid(contact, icons)}
 
-  <h2>Resumo Profissional</h2>
-  <p>${escapeHtml(content.summary)}</p>
+  ${renderSkillsSection(content.skills)}
 
   <h2>Experiência Profissional</h2>
   ${renderExperience(content.experience)}
 
+  ${renderProjects(content.projects)}
+
   <h2>Formação Acadêmica</h2>
   ${renderEducation(content.education)}
 
-  <h2>Competências e Tecnologias</h2>
-  ${renderSkillsLine('Linguagens e Frameworks', skills.languages)}
-  ${renderSkillsLine('Inteligência Artificial', skills.ai)}
-  ${renderSkillsLine('Cloud e Infraestrutura', skills.cloud)}
-  ${renderSkillsLine('Ferramentas e Práticas', skills.tools)}
+  ${renderLanguages(content.languages)}
 </body>
 </html>`;
 }
 
 /**
  * Gera o PDF do CV adaptado e salva em backend/generated-cvs/{userId}/{jobTitle}-{empresaAbreviada}.pdf
- * @param {object} adaptedContent - mesma forma do cv_base (full_name, contact, summary, experience, education, skills)
+ * @param {object} adaptedContent - mesma forma do cv_base (full_name, title, contact, summary, experience, education, skills, projects, languages)
  * @param {number|string} jobId - usado só como fallback caso jobTitle não seja informado
  * @param {string} [jobTitle] - título da vaga, usado para nomear o arquivo de forma legível
  * @param {string} [company] - empresa da vaga, abreviada no nome do arquivo
@@ -190,7 +224,8 @@ function renderHtml(content) {
  * @returns {Promise<{filePath: string, fileName: string}>}
  */
 export async function generatePdf(adaptedContent, jobId, jobTitle, company, userId) {
-  const html = renderHtml(adaptedContent);
+  const icons = await loadIcons();
+  const html = renderHtml(adaptedContent, icons);
 
   const browser = await chromium.launch();
   let pdfBuffer;

@@ -63,17 +63,20 @@ export async function addCv(req, res) {
     const cv = extraction.content;
 
     const insert = await pool.query(
-      `INSERT INTO cv_base (user_id, label, full_name, contact, summary, experience, education, skills)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      `INSERT INTO cv_base (user_id, label, full_name, title, contact, summary, experience, education, skills, projects, languages)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
       [
         req.userId,
         cv.label,
         cv.full_name,
+        cv.title || null,
         JSON.stringify(cv.contact || {}),
         cv.summary || '',
         JSON.stringify(cv.experience || []),
         JSON.stringify(cv.education || []),
         JSON.stringify(cv.skills || {}),
+        JSON.stringify(cv.projects || []),
+        JSON.stringify(cv.languages || []),
       ]
     );
 

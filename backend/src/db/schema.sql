@@ -114,4 +114,11 @@ ALTER TABLE preferences
 ALTER TABLE preferences
   ADD COLUMN IF NOT EXISTS telegram_channels TEXT[] DEFAULT '{}';
 
+-- Novo modelo de CV: cargo desejado (subtítulo abaixo do nome), projetos
+-- pessoais/extras ("Cursos e Experiências Adicionais") e idiomas.
+ALTER TABLE cv_base
+  ADD COLUMN IF NOT EXISTS title TEXT,
+  ADD COLUMN IF NOT EXISTS projects JSONB NOT NULL DEFAULT '[]',
+  ADD COLUMN IF NOT EXISTS languages JSONB NOT NULL DEFAULT '[]';
+
 

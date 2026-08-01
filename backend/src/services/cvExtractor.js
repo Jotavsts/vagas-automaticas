@@ -17,11 +17,14 @@ const OUTPUT_SCHEMA_DOC = `Schema JSON de saída esperado (responda APENAS com u
 {
   "label": string (rótulo curto de 1-3 palavras resumindo o foco deste currículo, ex: "Desenvolvimento Backend", "Atendimento ao Cliente", "Medicina Veterinária" — baseado na área/cargo predominante do documento),
   "full_name": string,
+  "title": string|null (cargo/subtítulo logo abaixo do nome, ex: "DESENVOLVEDOR BACKEND / IA" — só se estiver escrito assim no documento, não invente),
   "contact": { "phone": string|null, "email": string|null, "location": string|null, "linkedin": string|null, "github": string|null },
   "summary": string|null,
   "experience": [ { "company": string, "role": string, "location": string|null, "start_date": string|null, "end_date": string|null, "bullets": [string] } ],
   "education": [ { "institution": string, "location": string|null, "degree": string, "expected_completion": string|null } ],
-  "skills": { "languages": [string], "ai": [string], "cloud": [string], "tools": [string] }
+  "skills": { "languages": [string], "ai": [string], "cloud": [string], "tools": [string] },
+  "projects": [ { "name": string, "body": string, "skills": [string], "tools": [string] } ] (seção "Cursos e Experiências Adicionais" — projetos pessoais/extras fora dos vínculos empregatícios; [] se não houver),
+  "languages": [ { "lang": string, "level": string } ] (idiomas falados, ex: {"lang":"Inglês","level":"Intermediário"}; [] se não houver)
 }`;
 
 function buildTextMessage(resumeText) {

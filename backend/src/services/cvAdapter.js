@@ -18,11 +18,14 @@ Regras:
 const OUTPUT_SCHEMA_DOC = `Schema JSON de saída esperado (responda APENAS com um único objeto JSON neste formato):
 {
   "full_name": string (idêntico ao original),
+  "title": string|null (idêntico ao original, nunca reescreva),
   "contact": object (idêntico ao original),
   "summary": string (reescrito pra vaga, mas verdadeiro e nível júnior),
   "experience": [ { "company","role","location","start_date","end_date","bullets":[...] } ] (company/role/start_date/end_date IDÊNTICOS ao original; bullets podem ser reordenados/reescritos sem inventar),
   "education": [ { ... } ] (SEMPRE um array/lista de objetos, copie exatamente os mesmos objetos do CURRÍCULO BASE abaixo, na mesma quantidade — NUNCA transforme em um objeto solto),
   "skills": object (mesmas skills, reordenadas por relevância),
+  "projects": array (idêntico ao original, copie exatamente — nunca reescreva ou reordene os projetos),
+  "languages": array (idêntico ao original, copie exatamente),
   "match_score": number 0-100,
   "match_notes": string (1-2 frases em pt-BR, uso interno)
 }`;
@@ -121,6 +124,17 @@ function validateNoHallucination(adapted, cvBase) {
   // contact deve bater com o original (não pode mudar telefone/email/localização/links)
   if (!deepEqual(adapted.contact, cvBase.contact)) {
     return { ok: false, reason: 'contato (contact) divergente do original' };
+  }
+
+  // title, projects e languages são imutáveis (mesma lógica de contact/education)
+  if ((adapted.title || null) !== (cvBase.title || null)) {
+    return { ok: false, reason: 'title divergente do original' };
+  }
+  if (!deepEqual(adapted.projects || [], cvBase.projects || [])) {
+    return { ok: false, reason: 'projects divergente do original' };
+  }
+  if (!deepEqual(adapted.languages || [], cvBase.languages || [])) {
+    return { ok: false, reason: 'languages divergente do original' };
   }
 
   return { ok: true };
