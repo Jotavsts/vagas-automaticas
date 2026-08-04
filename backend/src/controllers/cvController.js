@@ -95,7 +95,9 @@ export async function addCv(req, res) {
 }
 
 /**
- * PATCH /api/cv/:id - renomeia o rótulo de um currículo do usuário.
+ * PATCH /api/cv/:id - renomeia o rótulo (nicho) de um currículo do usuário.
+ * O rótulo é o que define pra qual nicho de vaga esse CV é usado — renomear
+ * pra um nicho novo também registra a busca de vagas nesse nicho.
  */
 export async function renameCv(req, res) {
   const { id } = req.params;
@@ -105,13 +107,21 @@ export async function renameCv(req, res) {
   }
 
   try {
+    const trimmedLabel = label.trim();
     const result = await pool.query(
       'UPDATE cv_base SET label = $1 WHERE id = $2 AND user_id = $3 RETURNING *',
-      [label.trim(), id, req.userId]
+      [trimmedLabel, id, req.userId]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Currículo não encontrado' });
     }
+
+    // Fire-and-forget: mesmo comportamento de addCv/register — se o nicho
+    // novo não existe ainda, passa a ser coletado a partir do próximo ciclo.
+    ensureAreaForLabel(trimmedLabel, req.userId).catch((err) =>
+      console.error('[jobAreaResolver] falha ao registrar área ao renomear CV (best-effort):', err.message)
+    );
+
     res.json(result.rows[0]);
   } catch (err) {
     console.error(err);

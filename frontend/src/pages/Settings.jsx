@@ -196,8 +196,10 @@ function Settings() {
         <div className="mb-5">
           <h1 className="text-lg font-bold text-ink">Meus currículos</h1>
           <p className="text-sm text-ink-secondary mt-0.5">
-            Suba versões diferentes (ex: uma da sua área, outra pra um trampo alternativo). A IA
-            escolhe sozinha a mais alinhada a cada vaga na hora de adaptar.
+            Suba versões diferentes pra nichos diferentes (ex: um de Tecnologia, outro de
+            Atendimento ao Cliente). O rótulo de cada CV define o nicho — renomeie pra
+            ativar a busca de vagas nesse nicho. A IA escolhe sozinha a mais alinhada a
+            cada vaga na hora de adaptar.
           </p>
         </div>
 
@@ -211,7 +213,8 @@ function Settings() {
                       <input
                         value={editLabel}
                         onChange={(e) => setEditLabel(e.target.value)}
-                        aria-label="Novo nome do currículo"
+                        aria-label="Nicho do currículo"
+                        placeholder="ex: Culinária, Vendas, Motorista..."
                         className="px-2.5 py-1 rounded-lg border border-border bg-surface text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary/40"
                       />
                       <Button variant="primary" onClick={() => handleRename(cv.id)}>Salvar</Button>
