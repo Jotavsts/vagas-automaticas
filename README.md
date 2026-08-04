@@ -17,7 +17,7 @@ revisar e enviar com um clique.
 
 - **Backend**: Node.js + Express, PostgreSQL
 - **Frontend**: React + Vite + Tailwind CSS
-- **IA**: Anthropic Claude API (extração e adaptação de currículo)
+- **IA**: multi-provedor com fallback automático (Anthropic, Groq, NVIDIA NIM, Google Gemini, OpenRouter, Cerebras, Cohere, Mistral) — se um provedor falhar ou ficar sem crédito, tenta o próximo sozinho
 - **PDF**: Playwright (renderização HTML → PDF)
 - **Infra**: Docker Compose (Postgres)
 
@@ -47,8 +47,65 @@ cd ../frontend && npm install
 ```bash
 cd backend
 cp .env.example .env
-# preencher CLAUDE_API_KEY, credenciais do banco, etc.
+# preencher credenciais do banco e pelo menos 1 provedor de IA (ver seção abaixo)
 ```
+
+## 🔑 Provedores de IA (grátis, sem cartão)
+
+O projeto tenta os provedores na ordem definida em `AI_PROVIDERS` (env, separado
+por vírgula) e cai pro próximo automaticamente se um falhar/acabar limite —
+não precisa pagar nada pra rodar. Configure pelo menos 1, quanto mais tiver
+na fila mais resiliente fica.
+
+**Groq** (recomendado, mais rápido de configurar)
+Link: https://console.groq.com/keys
+Instrução: login com email → key gerada na hora, sem cartão.
+
+**NVIDIA NIM**
+Link: https://build.nvidia.com
+Instrução: login → avatar no canto superior direito → API Keys → Generate API Key. Pede verificação de telefone.
+
+**Google Gemini (AI Studio)**
+Link: https://aistudio.google.com/apikey
+Instrução: login com conta Google → Create API key → escolhe ou cria um projeto.
+
+**OpenRouter**
+Link: https://openrouter.ai/keys
+Instrução: signup → Create Key. Pra usar os modelos `:free` precisa ativar "Enable free endpoints that may train on inputs" em Settings → Privacy.
+
+**Cerebras**
+Link: https://cloud.cerebras.ai
+Instrução: signup → API Keys.
+
+**Cohere**
+Link: https://dashboard.cohere.com/api-keys
+Instrução: signup → gera key direto no dashboard.
+
+**Mistral**
+Link: https://console.mistral.ai/api-keys
+Instrução: signup → Create new key.
+
+**Anthropic** (paga, opcional como reserva)
+Link: https://console.anthropic.com
+Instrução: só precisa se quiser Claude na fila — exige crédito em Plans & Billing.
+
+Depois de criar a key, cola no `.env`:
+
+```bash
+AI_PROVIDERS=groq,nvidia,google,openrouter,cohere,mistral
+GROQ_API_KEY=...
+NVIDIA_API_KEY=...
+GOOGLE_API_KEY=...
+OPENROUTER_API_KEY=...
+COHERE_API_KEY=...
+MISTRAL_API_KEY=...
+```
+
+Cada provedor tem key própria e nome de env próprio (`{NOME}_API_KEY`), ver
+[.env.example](backend/.env.example) pra lista completa com nomes de modelo
+padrão. Não precisa gerar key nova quando o limite estourar — ele reseta
+sozinho (por minuto/dia/mês, depende do provedor) e o sistema volta a tentar
+automaticamente.
 
 ### 4. Rodar
 
