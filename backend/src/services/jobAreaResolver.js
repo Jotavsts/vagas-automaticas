@@ -1,9 +1,7 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { parseJsonFromText } from '../utils/jsonExtract.js';
 import { slugify } from '../utils/slugify.js';
 import { pool } from '../utils/db.js';
-
-const MODEL = 'claude-haiku-4-5';
+import { generateText } from './aiClient.js';
 
 // Categorias do Remotar cujo id numérico (?c=N) foi CONFIRMADO ao vivo (ver
 // CLAUDE.md e remotar.js). O site tem ~21 categorias no total, mas só essas
@@ -79,15 +77,11 @@ export async function resolveJobArea(cvLabel, activeAreas) {
   const validAreaIds = new Set(activeAreas.map((a) => a.id));
 
   try {
-    const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
-    const response = await client.messages.create({
-      model: MODEL,
-      max_tokens: 512,
+    const { text } = await generateText({
       system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: buildUserMessage(cvLabel, activeAreas) }],
+      prompt: buildUserMessage(cvLabel, activeAreas),
+      maxTokens: 512,
     });
-    const block = response.content && response.content[0];
-    const text = block && block.type === 'text' ? block.text : '';
     const parsed = parseJsonFromText(text);
 
     if (!parsed) return fallbackResolution(cvLabel);

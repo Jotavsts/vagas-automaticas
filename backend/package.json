@@ -11,7 +11,10 @@
   },
   "nodemonConfig": {
     "ext": "js,json",
-    "ignore": ["generated-cvs/**", "node_modules/*"],
+    "ignore": [
+      "generated-cvs/**",
+      "node_modules/*"
+    ],
     "delay": "1000"
   },
   "keywords": [
@@ -33,6 +36,7 @@
     "mammoth": "^1.12.0",
     "multer": "^2.2.0",
     "node-cron": "^4.6.0",
+    "pdf-parse": "^1.1.1",
     "pg": "^8.11.0",
     "playwright": "^1.48.0",
     "rss-parser": "^3.13.0"

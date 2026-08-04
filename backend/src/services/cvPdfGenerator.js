@@ -86,12 +86,16 @@ function renderExperience(experience = []) {
   return experience
     .map((item) => {
       const bullets = (item.bullets || []).map((b) => `<li>${escapeHtml(b)}</li>`).join('\n');
-      const endDate = item.end_date ? escapeHtml(item.end_date) : 'Presente';
+      // "Presente" só faz sentido quando sabemos QUANDO começou. Sem start_date,
+      // não dá pra afirmar que é o emprego atual — assume período passado/concluído.
+      const period = item.start_date
+        ? `${escapeHtml(item.start_date)} &ndash; ${item.end_date ? escapeHtml(item.end_date) : 'Presente'}`
+        : 'Período concluído';
       return `
         <div class="entry">
           <div class="row">
             <span><strong>${escapeHtml(item.role)}</strong> &ndash; ${escapeHtml(item.company)}</span>
-            <span class="period">${escapeHtml(item.start_date)} &ndash; ${endDate}</span>
+            <span class="period">${period}</span>
           </div>
           <ul>${bullets}</ul>
         </div>

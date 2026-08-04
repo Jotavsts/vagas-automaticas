@@ -158,3 +158,21 @@ export async function removeChannel(channel) {
   const { data } = await api.delete(`/channels/${channel}`)
   return data
 }
+
+/** @returns {Promise<{wildcard: object}>} Currículo coringa do usuário */
+export async function getWildcardCv() {
+  const { data } = await api.get('/cv/wildcard')
+  return data
+}
+
+/** @returns {Promise<{adapted: boolean, wildcard?: object, reason?: string}>} */
+export async function generateWildcardCv() {
+  const { data } = await api.post('/cv/wildcard')
+  return data
+}
+
+/** @returns {Promise<{pdfPath: string, downloadUrl: string}>} */
+export async function downloadWildcardPdf() {
+  const { data } = await api.post('/cv/wildcard/pdf')
+  return data
+}

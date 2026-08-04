@@ -4,6 +4,7 @@ import { generatePdf } from '../services/cvPdfGenerator.js';
 import { extractCv } from '../services/cvExtractor.js';
 import { selectCv } from '../services/cvSelector.js';
 import { ensureAreaForLabel } from '../services/jobAreaResolver.js';
+import { adaptWildcard } from '../services/cvWildcardAdapter.js';
 
 // Limite de currículos por usuário no plano gratuito. Gancho de assinatura
 // futura: quando existir plano pago, isso vira um limite por usuário/tier.
@@ -306,5 +307,116 @@ export async function getAdaptationForJob(req, res) {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Falha ao buscar adaptação', details: err.message });
+  }
+}
+
+/**
+ * GET /api/cv/wildcard - retorna o currículo coringa do usuário (se existir).
+ */
+export async function getWildcard(req, res) {
+  try {
+    const result = await pool.query(
+      `SELECT w.*, cb.label AS cv_label
+       FROM cv_wildcard w
+       LEFT JOIN cv_base cb ON cb.id = w.cv_base_id
+       WHERE w.user_id = $1`,
+      [req.userId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Nenhum currículo coringa gerado ainda.' });
+    }
+    res.json({ wildcard: result.rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Falha ao buscar currículo coringa', details: err.message });
+  }
+}
+
+/**
+ * POST /api/cv/wildcard - gera (ou regera) o currículo coringa do usuário.
+ * Usa as keywords de preferences como contexto para a IA.
+ */
+export async function generateWildcard(req, res) {
+  try {
+    // Busca CVs e preferências. Usa o CV mais recente como base do coringa —
+    // se a pessoa acabou de adicionar um novo, é ele que deve ser adaptado.
+    const cvResult = await pool.query('SELECT * FROM cv_base WHERE user_id = $1 ORDER BY id DESC', [
+      req.userId,
+    ]);
+    if (cvResult.rows.length === 0) {
+      return res.status(400).json({ error: 'Nenhum currículo cadastrado.' });
+    }
+
+    const prefResult = await pool.query('SELECT keywords FROM preferences WHERE user_id = $1', [
+      req.userId,
+    ]);
+    const keywords = /** @type {string[]} */ (prefResult.rows[0]?.keywords || []);
+
+    // Usa o primeiro CV (mais genérico) — se tiver só um, usa ele direto
+    const cvBase = cvResult.rows[0];
+
+    const result = await adaptWildcard(cvBase, keywords);
+
+    if (!result.adapted) {
+      return res.status(200).json({
+        adapted: false,
+        reason: result.reason,
+        content: result.content,
+      });
+    }
+
+    // Upsert: se já existe, sobrescreve (UNIQUE em user_id)
+    const upsert = await pool.query(
+      `INSERT INTO cv_wildcard (user_id, cv_base_id, adapted_content, keywords_used, model_used)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (user_id) DO UPDATE SET
+         cv_base_id = EXCLUDED.cv_base_id,
+         adapted_content = EXCLUDED.adapted_content,
+         keywords_used = EXCLUDED.keywords_used,
+         model_used = EXCLUDED.model_used,
+         created_at = now()
+       RETURNING *`,
+      [req.userId, cvBase.id, JSON.stringify(result.content), keywords, result.model_used]
+    );
+
+    return res.json({
+      adapted: true,
+      wildcard: { ...upsert.rows[0], cv_label: cvBase.label },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Falha ao gerar currículo coringa', details: err.message });
+  }
+}
+
+/**
+ * POST /api/cv/wildcard/pdf - gera o PDF do currículo coringa.
+ */
+export async function generateWildcardPdf(req, res) {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM cv_wildcard WHERE user_id = $1',
+      [req.userId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Nenhum currículo coringa gerado. Gere o coringa primeiro.',
+      });
+    }
+
+    const wildcard = result.rows[0];
+    const { filePath, fileName } = await generatePdf(
+      wildcard.adapted_content,
+      null,
+      'curriculo-coringa',
+      null,
+      req.userId
+    );
+    const downloadUrl = `/generated-cvs/${req.userId}/${fileName}`;
+
+    return res.json({ pdfPath: filePath, downloadUrl });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Falha ao gerar PDF do coringa', details: err.message });
   }
 }

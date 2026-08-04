@@ -1,8 +1,6 @@
-import Anthropic from '@anthropic-ai/sdk';
 import mammoth from 'mammoth';
 import { parseJsonFromText } from '../utils/jsonExtract.js';
-
-const MODEL = 'claude-haiku-4-5';
+import { generateText } from './aiClient.js';
 
 const SYSTEM_PROMPT = `Você extrai dados estruturados de um currículo (PDF ou texto) para um schema JSON fixo.
 
@@ -85,21 +83,11 @@ export function deriveKeywordsFromSkills(skills = {}) {
  * @returns {Promise<object>} { extracted: true, content } ou { extracted: false, reason }
  */
 export async function extractCv(fileBuffer, mimetype) {
-  const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
-
-  let userMessageContent;
+  let prompt;
+  let pdfBuffer;
   if (mimetype === 'application/pdf') {
-    userMessageContent = [
-      {
-        type: 'document',
-        source: {
-          type: 'base64',
-          media_type: 'application/pdf',
-          data: fileBuffer.toString('base64'),
-        },
-      },
-      { type: 'text', text: OUTPUT_SCHEMA_DOC },
-    ];
+    prompt = OUTPUT_SCHEMA_DOC;
+    pdfBuffer = fileBuffer;
   } else {
     let resumeText;
     try {
@@ -110,38 +98,24 @@ export async function extractCv(fileBuffer, mimetype) {
     if (!resumeText || !resumeText.trim()) {
       return { extracted: false, reason: 'não foi possível extrair texto do arquivo DOCX' };
     }
-    userMessageContent = buildTextMessage(resumeText);
+    prompt = buildTextMessage(resumeText);
   }
 
-  async function callApi(content) {
-    const response = await client.messages.create({
-      model: MODEL,
-      max_tokens: 4096,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content }],
-    });
-    const block = response.content && response.content[0];
-    return block && block.type === 'text' ? block.text : '';
+  async function callApi(p) {
+    const { text } = await generateText({ system: SYSTEM_PROMPT, prompt: p, pdfBuffer, maxTokens: 4096 });
+    return text;
   }
 
   let parsed;
   try {
-    let text = await callApi(userMessageContent);
+    let text = await callApi(prompt);
     parsed = parseJsonFromText(text);
 
     if (!parsed) {
-      const retryContent =
-        typeof userMessageContent === 'string'
-          ? userMessageContent +
-            '\n\nSua resposta anterior não era JSON válido. Responda ESTRITAMENTE com um único objeto JSON válido, nada mais.'
-          : [
-              ...userMessageContent,
-              {
-                type: 'text',
-                text: 'Sua resposta anterior não era JSON válido. Responda ESTRITAMENTE com um único objeto JSON válido, nada mais.',
-              },
-            ];
-      text = await callApi(retryContent);
+      const retryPrompt =
+        prompt +
+        '\n\nSua resposta anterior não era JSON válido. Responda ESTRITAMENTE com um único objeto JSON válido, nada mais.';
+      text = await callApi(retryPrompt);
       parsed = parseJsonFromText(text);
     }
 

@@ -1,7 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { parseJsonFromText } from '../utils/jsonExtract.js';
-
-const MODEL = 'claude-haiku-4-5';
+import { generateText } from './aiClient.js';
 
 const SYSTEM_PROMPT = `Você escolhe qual currículo (dentre os que a pessoa cadastrou) é a melhor BASE para adaptar a uma vaga específica.
 
@@ -52,15 +50,11 @@ export async function selectCv(job, cvs) {
   const validIds = new Set(cvs.map((c) => c.id));
 
   try {
-    const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
-    const response = await client.messages.create({
-      model: MODEL,
-      max_tokens: 256,
+    const { text } = await generateText({
       system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: buildUserMessage(job, cvs) }],
+      prompt: buildUserMessage(job, cvs),
+      maxTokens: 256,
     });
-    const block = response.content && response.content[0];
-    const text = block && block.type === 'text' ? block.text : '';
     const parsed = parseJsonFromText(text);
 
     if (parsed && validIds.has(parsed.cv_base_id)) {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getCvs, addCv, renameCv, deleteCv, getChannels, addChannel, removeChannel } from '../services/api'
+import { getCvs, addCv, renameCv, deleteCv, getChannels, addChannel, removeChannel, getWildcardCv, generateWildcardCv, downloadWildcardPdf } from '../services/api'
 import Button from '../components/Button'
 
 // Espelha FREE_TIER_MAX_CVS do backend. Gancho de assinatura futura.
@@ -25,6 +25,14 @@ function Settings() {
   const [channelError, setChannelError] = useState(null)
   const [addingChannel, setAddingChannel] = useState(false)
 
+  // Currículo Coringa
+  const [wildcard, setWildcard] = useState(null)
+  const [wildcardLoading, setWildcardLoading] = useState(true)
+  const [wildcardGenerating, setWildcardGenerating] = useState(false)
+  const [wildcardDownloading, setWildcardDownloading] = useState(false)
+  const [wildcardError, setWildcardError] = useState(null)
+  const [wildcardFile, setWildcardFile] = useState(null)
+
   async function load() {
     const data = await getCvs()
     setCvs(data)
@@ -39,9 +47,22 @@ function Settings() {
     }
   }
 
+  async function loadWildcard() {
+    setWildcardLoading(true)
+    try {
+      const data = await getWildcardCv()
+      setWildcard(data.wildcard)
+    } catch {
+      setWildcard(null)
+    } finally {
+      setWildcardLoading(false)
+    }
+  }
+
   useEffect(() => {
     load()
     loadChannels()
+    loadWildcard()
   }, [])
 
   async function handleAdd(e) {
@@ -88,6 +109,69 @@ function Settings() {
       setChannelError(err.response?.data?.error || 'Falha ao adicionar canal.')
     } finally {
       setAddingChannel(false)
+    }
+  }
+
+  async function handleUploadAndGenerateWildcard(e) {
+    e.preventDefault()
+    setWildcardError(null)
+    if (!wildcardFile) { setWildcardError('Selecione um arquivo PDF ou DOCX.'); return }
+    setWildcardGenerating(true)
+    try {
+      const formData = new FormData()
+      formData.append('cv', wildcardFile)
+      await addCv(formData)
+      setWildcardFile(null)
+      e.target.reset()
+      await load()
+      const result = await generateWildcardCv()
+      if (result.adapted) {
+        setWildcard(result.wildcard)
+      } else {
+        setWildcardError(result.reason || 'Não foi possível gerar o currículo coringa.')
+      }
+    } catch (err) {
+      setWildcardError(err.response?.data?.error || 'Falha ao adicionar/gerar currículo coringa.')
+    } finally {
+      setWildcardGenerating(false)
+    }
+  }
+
+  async function handleGenerateWildcard() {
+    setWildcardError(null)
+    setWildcardGenerating(true)
+    try {
+      const result = await generateWildcardCv()
+      if (result.adapted) {
+        setWildcard(result.wildcard)
+      } else {
+        setWildcardError(result.reason || 'Não foi possível gerar o currículo coringa.')
+      }
+    } catch (err) {
+      setWildcardError(err.response?.data?.error || 'Falha ao gerar currículo coringa.')
+    } finally {
+      setWildcardGenerating(false)
+    }
+  }
+
+  async function handleDownloadWildcardPdf() {
+    setWildcardDownloading(true)
+    try {
+      const result = await downloadWildcardPdf()
+      const response = await fetch(`http://localhost:5000${result.downloadUrl}`)
+      const blob = await response.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = blobUrl
+      link.download = result.downloadUrl.split('/').pop()
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(blobUrl)
+    } catch (err) {
+      setWildcardError(err.response?.data?.error || 'Falha ao baixar PDF.')
+    } finally {
+      setWildcardDownloading(false)
     }
   }
 
@@ -186,6 +270,96 @@ function Settings() {
           A edição do conteúdo do CV (experiências, skills) ainda é feita direto no banco nesta fase —
           aqui você gerencia quais currículos existem e seus rótulos.
         </p>
+      </section>
+
+      {/* ── Seção: Currículo Coringa ── */}
+      <section>
+        <div className="mb-5">
+          <h2 className="text-lg font-bold text-ink flex items-center gap-2">
+            <span>🃏</span> Currículo Coringa
+          </h2>
+          <p className="text-sm text-ink-secondary mt-0.5">
+            Um CV otimizado de forma ampla para múltiplas vagas da sua área. Ideal para
+            enviar em oportunidades que você encontra fora da plataforma ou como versão
+            pronta para qualquer momento.
+          </p>
+        </div>
+
+        <form onSubmit={handleUploadAndGenerateWildcard} className="flex items-center gap-2 mb-4">
+          <input
+            type="file"
+            accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+            onChange={(e) => setWildcardFile(e.target.files?.[0] || null)}
+            className="flex-1 min-w-0 text-sm text-ink-secondary file:mr-3 file:px-3 file:py-1.5 file:rounded-lg file:border-0 file:bg-tag file:text-tag-ink file:text-xs file:font-semibold"
+          />
+          <Button variant="primary" type="submit" disabled={wildcardGenerating}>
+            {wildcardGenerating ? 'Enviando...' : 'Upar e gerar coringa'}
+          </Button>
+        </form>
+
+        {wildcardLoading ? (
+          <p className="text-sm text-ink-secondary">Carregando...</p>
+        ) : wildcard ? (
+          <div className="bg-surface rounded-xl p-4 border border-border">
+            <div className="flex justify-between items-start gap-3 mb-3">
+              <div className="min-w-0">
+                <div className="font-semibold text-ink text-title">{wildcard.adapted_content?.full_name}</div>
+                {wildcard.cv_label && (
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-tag text-tag-ink mt-1 inline-block">
+                    CV base: {wildcard.cv_label}
+                  </span>
+                )}
+              </div>
+              <span className="text-xs text-ink-secondary whitespace-nowrap">
+                {new Date(wildcard.created_at).toLocaleDateString('pt-BR')}
+              </span>
+            </div>
+
+            <p className="text-xs text-ink-secondary leading-relaxed mb-3 line-clamp-3">
+              {wildcard.adapted_content?.summary}
+            </p>
+
+            {wildcard.adapted_content?.skills && (
+              <div className="flex gap-1.5 flex-wrap mb-4">
+                {Object.values(wildcard.adapted_content.skills)
+                  .flat()
+                  .slice(0, 8)
+                  .map((skill) => (
+                    <span key={skill} className="text-[11px] font-semibold px-2 py-0.5 rounded bg-tag text-tag-ink">
+                      {skill}
+                    </span>
+                  ))}
+              </div>
+            )}
+
+            {wildcard.keywords_used && wildcard.keywords_used.length > 0 && (
+              <p className="text-[11px] text-ink-secondary mb-3">
+                <strong>Keywords usadas:</strong> {wildcard.keywords_used.join(', ')}
+              </p>
+            )}
+
+            <div className="flex gap-2">
+              <Button variant="primary" onClick={handleDownloadWildcardPdf} disabled={wildcardDownloading}>
+                {wildcardDownloading ? 'Gerando PDF...' : '📄 Baixar PDF'}
+              </Button>
+              <Button variant="secondary" onClick={handleGenerateWildcard} disabled={wildcardGenerating}>
+                {wildcardGenerating ? 'Regerando...' : '↻ Regerar'}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-surface rounded-xl p-4 border border-border">
+            <p className="text-sm text-ink-secondary mb-3">
+              Você ainda não gerou seu currículo coringa. Clique abaixo para criar um CV genérico
+              otimizado para a sua área de interesse.
+            </p>
+            <Button variant="primary" onClick={handleGenerateWildcard} disabled={wildcardGenerating}>
+              {wildcardGenerating ? 'Gerando com IA...' : '🃏 Gerar Currículo Coringa'}
+            </Button>
+          </div>
+        )}
+
+        {wildcardError && <p className="text-xs text-danger-ink mt-2">{wildcardError}</p>}
       </section>
 
       {/* ── Seção: Canais do Telegram ── */}

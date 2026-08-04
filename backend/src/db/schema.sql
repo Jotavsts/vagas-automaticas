@@ -121,4 +121,13 @@ ALTER TABLE cv_base
   ADD COLUMN IF NOT EXISTS projects JSONB NOT NULL DEFAULT '[]',
   ADD COLUMN IF NOT EXISTS languages JSONB NOT NULL DEFAULT '[]';
 
-
+-- Currículo Coringa: CV genérico otimizado para múltiplas vagas da área do usuário
+CREATE TABLE IF NOT EXISTS cv_wildcard (
+  id SERIAL PRIMARY KEY,
+  user_id INT NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  cv_base_id INT REFERENCES cv_base(id) ON DELETE SET NULL,
+  adapted_content JSONB NOT NULL,
+  keywords_used TEXT[] DEFAULT '{}',
+  model_used TEXT,
+  created_at TIMESTAMPTZ DEFAULT now()
+);

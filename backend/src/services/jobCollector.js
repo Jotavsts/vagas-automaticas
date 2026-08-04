@@ -130,6 +130,24 @@ async function summarizeInBatches(jobs) {
  * relevance_score aqui — cada usuário calcula sua própria pontuação em tempo de
  * leitura via computeRelevanceScore.
  */
+/**
+ * Regra de localização:
+ * - Vagas REMOTAS são aceitas de qualquer lugar do Brasil/Mundo.
+ * - Vagas PRESENCIAIS / HÍBRIDAS só são aceitas se forem em Aracaju / SE (Sergipe).
+ * Vagas presenciais/híbridas de outros estados (ex: SP, RJ, PR) são descartadas.
+ */
+export function isJobLocationAllowed(job) {
+  if (job.modality === 'remoto') return true;
+
+  const loc = `${job.location || ''} ${job.state || ''}`.toLowerCase();
+  const isAracajuOrSE =
+    loc.includes('aracaju') ||
+    loc.includes('sergipe') ||
+    /\bse\b/.test(loc);
+
+  return isAracajuOrSE;
+}
+
 const DEFAULT_AREAS = [{ vagascombr_slug: 'tecnologia', remotar_category_ids: [4, 7, 13, 14, 8, 9], solides_query: '' }];
 
 export async function collectJobs() {
@@ -175,24 +193,6 @@ export async function collectJobs() {
     const newJobs = jobs.filter((j) => !existingIds.has(j.externalId));
 
     const summarized = await summarizeInBatches(newJobs);
-
-/**
- * Regra de localização:
- * - Vagas REMOTAS são aceitas de qualquer lugar do Brasil/Mundo.
- * - Vagas PRESENCIAIS / HÍBRIDAS só são aceitas se forem em Aracaju / SE (Sergipe).
- * Vagas presenciais/híbridas de outros estados (ex: SP, RJ, PR) são descartadas.
- */
-export function isJobLocationAllowed(job) {
-  if (job.modality === 'remoto') return true;
-
-  const loc = `${job.location || ''} ${job.state || ''}`.toLowerCase();
-  const isAracajuOrSE =
-    loc.includes('aracaju') ||
-    loc.includes('sergipe') ||
-    /\bse\b/.test(loc);
-
-  return isAracajuOrSE;
-}
 
     let insertedCount = 0;
     for (const job of summarized) {

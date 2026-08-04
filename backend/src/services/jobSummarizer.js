@@ -1,7 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { parseJsonFromText } from '../utils/jsonExtract.js';
-
-const MODEL = 'claude-haiku-4-5';
+import { generateText } from './aiClient.js';
 
 const SYSTEM_PROMPT = `Você resume vagas de emprego pra uso interno de um sistema de matching de currículos.
 
@@ -65,15 +63,11 @@ export async function summarizeJob(job) {
   }
 
   try {
-    const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
-    const response = await client.messages.create({
-      model: MODEL,
-      max_tokens: 512,
+    const { text } = await generateText({
       system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: buildUserMessage(job) }],
+      prompt: buildUserMessage(job),
+      maxTokens: 512,
     });
-    const block = response.content && response.content[0];
-    const text = block && block.type === 'text' ? block.text : '';
     const parsed = parseJsonFromText(text);
 
     if (

@@ -1,7 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { parseJsonFromText } from '../utils/jsonExtract.js';
-
-const MODEL = 'claude-haiku-4-5';
+import { generateText } from './aiClient.js';
 
 const SYSTEM_PROMPT = `Você adapta currículos para vagas específicas. O candidato é um desenvolvedor JÚNIOR.
 
@@ -79,7 +77,7 @@ function deepEqual(a, b) {
  * Valida que a adaptação não introduziu alucinações factuais.
  * Retorna { ok: true } ou { ok: false, reason: '...' }.
  */
-function validateNoHallucination(adapted, cvBase) {
+export function validateNoHallucination(adapted, cvBase) {
   const origExp = Array.isArray(cvBase.experience) ? cvBase.experience : [];
   const newExp = Array.isArray(adapted.experience) ? adapted.experience : [];
 
@@ -148,19 +146,13 @@ function validateNoHallucination(adapted, cvBase) {
  * @returns {Promise<object>} resultado da adaptação
  */
 export async function adaptCv(job, cvBase) {
-  const client = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
-
   const baseUserMessage = buildUserMessage(job, cvBase);
+  let modelUsed;
 
   async function callApi(userMessage) {
-    const response = await client.messages.create({
-      model: MODEL,
-      max_tokens: 4096,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userMessage }],
-    });
-    const block = response.content && response.content[0];
-    return block && block.type === 'text' ? block.text : '';
+    const { text, provider, model } = await generateText({ system: SYSTEM_PROMPT, prompt: userMessage, maxTokens: 4096 });
+    modelUsed = `${provider}:${model}`;
+    return text;
   }
 
   let parsed;
@@ -222,6 +214,6 @@ export async function adaptCv(job, cvBase) {
     content,
     match_score: matchScore,
     match_notes: matchNotes,
-    model_used: MODEL,
+    model_used: modelUsed,
   };
 }
