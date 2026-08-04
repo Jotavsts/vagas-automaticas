@@ -8,6 +8,7 @@ import cvRouter from './routes/cv.js';
 import applicationsRouter from './routes/applications.js';
 import authRouter from './routes/auth.js';
 import channelsRouter from './routes/channels.js';
+import preferencesRouter from './routes/preferences.js';
 import { requireAuth } from './middleware/requireAuth.js';
 import { startScheduler, startCleanupScheduler } from './services/jobScheduler.js';
 
@@ -30,6 +31,7 @@ app.use('/api/jobs', requireAuth, jobsRouter);
 app.use('/api/cv', requireAuth, cvRouter);
 app.use('/api/applications', requireAuth, applicationsRouter);
 app.use('/api/channels', requireAuth, channelsRouter);
+app.use('/api/preferences', requireAuth, preferencesRouter);
 app.use('/generated-cvs', express.static(path.join(__dirname, '..', 'generated-cvs')));
 
 app.listen(PORT, () => {

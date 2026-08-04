@@ -162,6 +162,7 @@ export async function deleteCv(req, res) {
  */
 export async function adaptForJob(req, res) {
   const { id } = req.params;
+  const { cv_base_id: requestedCvBaseId } = req.body || {};
   try {
     const jobResult = await pool.query('SELECT * FROM jobs WHERE id = $1', [id]);
     if (jobResult.rows.length === 0) {
@@ -176,9 +177,14 @@ export async function adaptForJob(req, res) {
       return res.status(400).json({ error: 'Nenhum currículo cadastrado' });
     }
 
-    // A IA escolhe qual CV base usar (se houver mais de um)
-    const { cv_base_id } = await selectCv(job, cvResult.rows);
-    const cvBase = cvResult.rows.find((c) => c.id === cv_base_id) || cvResult.rows[0];
+    // Se o usuário escolheu o CV manualmente, usa ele. Senão, a IA escolhe.
+    let cvBase = requestedCvBaseId
+      ? cvResult.rows.find((c) => c.id === Number(requestedCvBaseId))
+      : null;
+    if (!cvBase) {
+      const { cv_base_id } = await selectCv(job, cvResult.rows);
+      cvBase = cvResult.rows.find((c) => c.id === cv_base_id) || cvResult.rows[0];
+    }
 
     const result = await adaptCv(job, cvBase);
 

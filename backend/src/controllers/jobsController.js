@@ -28,10 +28,12 @@ export async function collect(req, res) {
 export async function listJobs(req, res) {
   const { status: statusFilter } = req.query;
   try {
-    const prefResult = await pool.query('SELECT keywords FROM preferences WHERE user_id = $1', [
-      req.userId,
-    ]);
+    const prefResult = await pool.query(
+      'SELECT keywords, min_relevance_score FROM preferences WHERE user_id = $1',
+      [req.userId]
+    );
     const keywords = prefResult.rows[0]?.keywords || [];
+    const minScore = prefResult.rows[0]?.min_relevance_score ?? 0;
 
     const jobsResult = await pool.query(
       `SELECT j.*,
@@ -49,7 +51,15 @@ export async function listJobs(req, res) {
       return { ...job, status, relevance_score: breakdown.score, score_breakdown: breakdown };
     });
 
-    const filtered = statusFilter ? jobs.filter((j) => j.status === statusFilter) : jobs;
+    // Só aplica o score mínimo em vagas ainda não adaptadas/aprovadas — e só
+    // quando o usuário tem keywords configuradas (sem keywords, score é sempre
+    // 0 pra tudo, então filtrar esconderia o pool inteiro em vez de refinar).
+    const relevant =
+      keywords.length > 0
+        ? jobs.filter((j) => j.status !== 'new' || j.relevance_score >= minScore)
+        : jobs;
+
+    const filtered = statusFilter ? relevant.filter((j) => j.status === statusFilter) : relevant;
 
     res.json(filtered);
   } catch (err) {

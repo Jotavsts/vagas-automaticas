@@ -23,6 +23,10 @@ const KNOWN_PROVIDERS = {
   nvidia: { baseUrl: 'https://integrate.api.nvidia.com/v1', defaultModel: 'meta/llama-3.1-70b-instruct' },
 };
 
+// Sem isso, um provedor que trava (sem erro, sem resposta) deixa a cadeia
+// inteira de fallback pendurada pra sempre — vimos isso acontecer ao vivo.
+const TIMEOUT_MS = 25000;
+
 function providerOrder() {
   return (process.env.AI_PROVIDERS || 'anthropic')
     .split(',')
@@ -35,7 +39,7 @@ async function callAnthropic({ system, prompt, pdfBuffer, maxTokens }) {
   if (!apiKey) throw new Error('sem ANTHROPIC_API_KEY/CLAUDE_API_KEY configurada');
   const model = process.env.ANTHROPIC_MODEL || 'claude-haiku-4-5';
 
-  const client = new Anthropic({ apiKey });
+  const client = new Anthropic({ apiKey, timeout: TIMEOUT_MS });
   const content = pdfBuffer
     ? [
         { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: pdfBuffer.toString('base64') } },
@@ -78,18 +82,29 @@ async function callOpenAiCompatible(name, { system, prompt, pdfBuffer, maxTokens
     userContent = `TEXTO DO CURRÍCULO (extraído do PDF):\n${text}\n\n${prompt}`;
   }
 
-  const res = await fetch(`${baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model,
-      max_tokens: maxTokens,
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: userContent },
-      ],
-    }),
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  let res;
+  try {
+    res = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model,
+        max_tokens: maxTokens,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: userContent },
+        ],
+      }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err.name === 'AbortError') throw new Error(`timeout após ${TIMEOUT_MS}ms`);
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) {
     throw new Error(`HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`);
   }

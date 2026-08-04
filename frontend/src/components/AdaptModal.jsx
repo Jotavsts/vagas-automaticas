@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { adaptJob, getAdaptation, approveJob } from '../services/api'
+import { adaptJob, getAdaptation, approveJob, getCvs } from '../services/api'
 import Button from './Button'
 import Badge from './Badge'
 import Tag from './Tag'
@@ -9,6 +9,8 @@ function AdaptModal({ job, onClose, onApproved }) {
   const [adaptation, setAdaptation] = useState(null)
   const [rejected, setRejected] = useState(null)
   const [approving, setApproving] = useState(false)
+  const [cvs, setCvs] = useState(null)
+  const [pickedCvId, setPickedCvId] = useState(null)
 
   useEffect(() => {
     function handleKeyDown(e) {
@@ -18,24 +20,37 @@ function AdaptModal({ job, onClose, onApproved }) {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
 
+  async function runAdapt(cvBaseId) {
+    setLoading(true)
+    const result = await adaptJob(job.id, cvBaseId)
+    if (result.adapted) {
+      setAdaptation(result.adaptation)
+    } else {
+      setRejected(result)
+    }
+    setLoading(false)
+  }
+
   useEffect(() => {
     let cancelled = false
     async function run() {
-      setLoading(true)
-      let result
-      if (job.status === 'new') {
-        result = await adaptJob(job.id)
-      } else {
+      if (job.status !== 'new') {
+        setLoading(true)
         const existing = await getAdaptation(job.id)
-        result = { adapted: true, adaptation: existing.adaptation }
+        if (cancelled) return
+        setAdaptation(existing.adaptation)
+        setLoading(false)
+        return
       }
+      // Vaga nova: se tiver mais de 1 currículo, deixa escolher antes de adaptar.
+      const cvList = await getCvs()
       if (cancelled) return
-      if (result.adapted) {
-        setAdaptation(result.adaptation)
+      if (cvList.length > 1) {
+        setCvs(cvList)
+        setLoading(false)
       } else {
-        setRejected(result)
+        await runAdapt()
       }
-      setLoading(false)
     }
     run()
     return () => {
@@ -73,6 +88,41 @@ function AdaptModal({ job, onClose, onApproved }) {
         onClick={(e) => e.stopPropagation()}
       >
         {loading && <p className="text-ink-secondary text-sm">Adaptando currículo para esta vaga...</p>}
+
+        {!loading && cvs && !adaptation && !rejected && (
+          <div>
+            <div id="adapt-modal-title" className="text-title font-bold text-ink mb-1">{job.title}</div>
+            <p className="text-sm text-ink-secondary mb-4">Qual currículo usar pra adaptar essa vaga?</p>
+            <div className="flex flex-col gap-2 mb-4">
+              {cvs.map((cv) => (
+                <button
+                  key={cv.id}
+                  onClick={() => setPickedCvId(cv.id)}
+                  className={`text-left px-3.5 py-2.5 rounded-lg border text-sm font-semibold transition-colors ${
+                    pickedCvId === cv.id
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border text-ink hover:border-primary/40'
+                  }`}
+                >
+                  {cv.label || 'Currículo'}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="primary"
+                className="flex-1"
+                disabled={!pickedCvId}
+                onClick={() => runAdapt(pickedCvId)}
+              >
+                Adaptar com esse currículo
+              </Button>
+              <Button variant="secondary" onClick={onClose}>
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        )}
 
         {!loading && rejected && (
           <div>

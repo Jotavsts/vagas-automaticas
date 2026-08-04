@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { getCvs, addCv, renameCv, deleteCv, getChannels, addChannel, removeChannel, getWildcardCv, generateWildcardCv, downloadWildcardPdf } from '../services/api'
+import { getCvs, addCv, renameCv, deleteCv, getChannels, addChannel, removeChannel, getWildcardCv, generateWildcardCv, downloadWildcardPdf, getPreferences, updatePreferences } from '../services/api'
 import Button from '../components/Button'
 
 // Espelha FREE_TIER_MAX_CVS do backend. Gancho de assinatura futura.
@@ -25,6 +25,14 @@ function Settings() {
   const [channelError, setChannelError] = useState(null)
   const [addingChannel, setAddingChannel] = useState(false)
 
+  // Preferências de vaga
+  const [prefKeywords, setPrefKeywords] = useState(null)
+  const [prefMinScore, setPrefMinScore] = useState(40)
+  const [newKeyword, setNewKeyword] = useState('')
+  const [prefSaving, setPrefSaving] = useState(false)
+  const [prefError, setPrefError] = useState(null)
+  const [prefSaved, setPrefSaved] = useState(false)
+
   // Currículo Coringa
   const [wildcard, setWildcard] = useState(null)
   const [wildcardLoading, setWildcardLoading] = useState(true)
@@ -47,6 +55,16 @@ function Settings() {
     }
   }
 
+  async function loadPreferences() {
+    try {
+      const data = await getPreferences()
+      setPrefKeywords(data.keywords || [])
+      setPrefMinScore(data.min_relevance_score ?? 40)
+    } catch {
+      setPrefKeywords([])
+    }
+  }
+
   async function loadWildcard() {
     setWildcardLoading(true)
     try {
@@ -62,8 +80,34 @@ function Settings() {
   useEffect(() => {
     load()
     loadChannels()
+    loadPreferences()
     loadWildcard()
   }, [])
+
+  function handleAddKeyword() {
+    const kw = newKeyword.trim().toLowerCase()
+    if (!kw || prefKeywords.includes(kw)) return
+    setPrefKeywords([...prefKeywords, kw])
+    setNewKeyword('')
+  }
+
+  function handleRemoveKeyword(kw) {
+    setPrefKeywords(prefKeywords.filter((k) => k !== kw))
+  }
+
+  async function handleSavePreferences() {
+    setPrefSaving(true)
+    setPrefError(null)
+    setPrefSaved(false)
+    try {
+      await updatePreferences({ keywords: prefKeywords, min_relevance_score: prefMinScore })
+      setPrefSaved(true)
+    } catch (err) {
+      setPrefError(err.response?.data?.error || 'Falha ao salvar preferências.')
+    } finally {
+      setPrefSaving(false)
+    }
+  }
 
   async function handleAdd(e) {
     e.preventDefault()
@@ -273,6 +317,81 @@ function Settings() {
           A edição do conteúdo do CV (experiências, skills) ainda é feita direto no banco nesta fase —
           aqui você gerencia quais currículos existem e seus rótulos.
         </p>
+      </section>
+
+      {/* ── Seção: Preferências de vaga ── */}
+      <section>
+        <div className="mb-5">
+          <h2 className="text-lg font-bold text-ink flex items-center gap-2">
+            <span>🎯</span> Preferências de vaga
+          </h2>
+          <p className="text-sm text-ink-secondary mt-0.5">
+            Essas palavras-chave definem o que conta como relevante pra você — sem elas,
+            toda vaga (de qualquer nicho) aparece com 0% e sem filtro. Se seu CV não é de
+            tecnologia, adicione aqui os termos da sua área (ex: "atendimento ao cliente",
+            "recepção", "vendas").
+          </p>
+        </div>
+
+        {prefKeywords === null ? (
+          <p className="text-sm text-ink-secondary">Carregando...</p>
+        ) : (
+          <div className="bg-surface rounded-xl p-4 border border-border">
+            <div className="text-sm font-semibold text-ink mb-2">Palavras-chave</div>
+            <div className="flex gap-1.5 flex-wrap mb-3">
+              {prefKeywords.length === 0 && (
+                <span className="text-xs text-ink-secondary">Nenhuma palavra-chave ainda.</span>
+              )}
+              {prefKeywords.map((kw) => (
+                <span
+                  key={kw}
+                  className="text-[11px] font-semibold pl-2 pr-1 py-0.5 rounded bg-tag text-tag-ink flex items-center gap-1"
+                >
+                  {kw}
+                  <button
+                    onClick={() => handleRemoveKeyword(kw)}
+                    aria-label={`Remover ${kw}`}
+                    className="hover:text-danger-ink"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+            <div className="flex gap-2 mb-4">
+              <input
+                value={newKeyword}
+                onChange={(e) => setNewKeyword(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddKeyword() } }}
+                placeholder="ex: atendimento ao cliente"
+                className="flex-1 min-w-0 px-3 py-1.5 rounded-lg border border-border bg-surface text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary/40"
+              />
+              <Button variant="secondary" onClick={handleAddKeyword}>Adicionar</Button>
+            </div>
+
+            <div className="text-sm font-semibold text-ink mb-2">Score mínimo pra aparecer no dashboard</div>
+            <div className="flex items-center gap-3 mb-4">
+              <input
+                type="range"
+                min="0"
+                max="100"
+                step="10"
+                value={prefMinScore}
+                onChange={(e) => setPrefMinScore(Number(e.target.value))}
+                className="flex-1"
+              />
+              <span className="text-sm font-semibold text-ink w-12 text-right">{prefMinScore}%</span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Button variant="primary" onClick={handleSavePreferences} disabled={prefSaving}>
+                {prefSaving ? 'Salvando...' : 'Salvar preferências'}
+              </Button>
+              {prefSaved && <span className="text-xs text-ink-secondary">Salvo ✓</span>}
+            </div>
+            {prefError && <p className="text-xs text-danger-ink mt-2">{prefError}</p>}
+          </div>
+        )}
       </section>
 
       {/* ── Seção: Currículo Coringa ── */}

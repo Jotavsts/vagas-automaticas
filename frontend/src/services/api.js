@@ -57,10 +57,11 @@ export async function collectJobs() {
 
 /**
  * @param {number|string} jobId
+ * @param {number|string} [cvBaseId] - Se omitido, a IA escolhe o CV automaticamente.
  * @returns {Promise<{adapted: boolean, content?: object, match_score?: number, match_notes?: string}>}
  */
-export async function adaptJob(jobId) {
-  const { data } = await api.post(`/jobs/${jobId}/adapt`)
+export async function adaptJob(jobId, cvBaseId) {
+  const { data } = await api.post(`/jobs/${jobId}/adapt`, cvBaseId ? { cv_base_id: cvBaseId } : {})
   return data
 }
 
@@ -174,5 +175,20 @@ export async function generateWildcardCv() {
 /** @returns {Promise<{pdfPath: string, downloadUrl: string}>} */
 export async function downloadWildcardPdf() {
   const { data } = await api.post('/cv/wildcard/pdf')
+  return data
+}
+
+/** @returns {Promise<{keywords: string[], min_relevance_score: number}>} */
+export async function getPreferences() {
+  const { data } = await api.get('/preferences')
+  return data
+}
+
+/**
+ * @param {{keywords?: string[], min_relevance_score?: number}} updates
+ * @returns {Promise<{keywords: string[], min_relevance_score: number}>}
+ */
+export async function updatePreferences(updates) {
+  const { data } = await api.patch('/preferences', updates)
   return data
 }
